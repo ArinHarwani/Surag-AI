@@ -220,6 +220,7 @@ export const NexusShell: React.FC<NexusShellProps> = ({
         <AddNewCaseModal
           onClose={() => setIsAddCaseOpen(false)}
           filingAgency={scopedAgency}
+          isAddingEvidence={documents.length > 0}
         />
       )}
 

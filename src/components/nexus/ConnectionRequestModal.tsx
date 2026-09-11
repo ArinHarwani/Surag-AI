@@ -14,20 +14,26 @@ interface ConnectionRequestModalProps {
   documents: Document[];
 }
 
-const PARTNER_AGENCY: Record<AgencySlug, { slug: AgencySlug; label: string; color: string }> = {
-  jodhpur: { slug: 'kota', label: 'Kota Police CID', color: '#D97706' },
-  kota: { slug: 'jodhpur', label: 'Jodhpur Police HQ', color: '#0284C7' },
-};
-
 function ConnectionRequestModalInner({
   onClose,
   requestingAgency,
   caseName,
   documents,
 }: ConnectionRequestModalProps) {
-  const { sendConnectionRequest } = useInvestigation();
+  const { sendConnectionRequest, agencies } = useInvestigation();
 
-  const partner = PARTNER_AGENCY[requestingAgency];
+  // Build list of all agencies EXCEPT the current portal's agency
+  const partnerAgencies = Object.values(agencies).filter(
+    (a) => a.slug !== requestingAgency
+  );
+
+  const [selectedTarget, setSelectedTarget] = useState<AgencySlug>(
+    partnerAgencies[0]?.slug ?? (requestingAgency === 'jodhpur' ? 'kota' : 'jodhpur')
+  );
+  const [sent, setSent] = useState(false);
+
+  const selectedAgency = agencies[selectedTarget];
+
   const defaultBrief = [
     `Case: ${caseName}`,
     `Evidence items: ${documents.length} file(s)`,
@@ -40,7 +46,6 @@ function ConnectionRequestModalInner({
     .join('\n');
 
   const [brief, setBrief] = useState(defaultBrief);
-  const [sent, setSent] = useState(false);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -55,7 +60,8 @@ function ConnectionRequestModalInner({
   }, [onClose]);
 
   const handleSend = () => {
-    sendConnectionRequest(requestingAgency, partner.slug, brief);
+    if (!selectedTarget) return;
+    sendConnectionRequest(requestingAgency, selectedTarget, brief);
     setSent(true);
     setTimeout(onClose, 1800);
   };
@@ -90,7 +96,7 @@ function ConnectionRequestModalInner({
               <Send className="w-6 h-6 text-emerald-700" />
             </div>
             <p className="text-sm font-black uppercase tracking-wider text-emerald-700">
-              Request Sent to {partner.label}
+              Request Sent to {selectedAgency?.name ?? selectedTarget}
             </p>
             <p className="text-xs text-slate-600 font-bold font-sans">
               The target agency will see a pending request notification in their portal.
@@ -98,26 +104,42 @@ function ConnectionRequestModalInner({
           </div>
         ) : (
           <div className="p-5 space-y-4">
-            {/* Target Agency */}
+            {/* Target Agency — dropdown */}
             <div>
-              <label className="block text-[11px] font-black uppercase text-slate-700 mb-1.5">
-                Target Agency
+              <label htmlFor="target-agency-select" className="block text-[11px] font-black uppercase text-slate-700 mb-1.5">
+                Select Target Agency
               </label>
-              <div
-                className="flex items-center gap-2 p-3 border-2 border-black"
-                style={{ backgroundColor: partner.color + '18' }}
-              >
-                <span
-                  className="text-[10px] font-black px-2 py-1 text-white uppercase"
-                  style={{ backgroundColor: partner.color }}
+              <div className="relative">
+                <select
+                  id="target-agency-select"
+                  value={selectedTarget}
+                  onChange={(e) => setSelectedTarget(e.target.value as AgencySlug)}
+                  className="w-full appearance-none p-3 border-2 border-black font-black text-xs bg-white text-black pr-8 outline-none cursor-pointer"
                 >
-                  {partner.slug.toUpperCase()}
-                </span>
-                <span className="text-xs font-bold text-slate-700">{partner.label}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-500 ml-auto opacity-30" />
+                  {partnerAgencies.map((agency) => (
+                    <option key={agency.slug} value={agency.slug}>
+                      {agency.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
               </div>
+              {selectedAgency && (
+                <div
+                  className="flex items-center gap-2 mt-2 px-3 py-2 border border-black text-[11px] font-bold"
+                  style={{ backgroundColor: selectedAgency.color + '18' }}
+                >
+                  <span
+                    className="text-[9px] font-black px-2 py-0.5 text-white uppercase"
+                    style={{ backgroundColor: selectedAgency.color }}
+                  >
+                    {selectedAgency.badge}
+                  </span>
+                  <span className="text-slate-700">{selectedAgency.name}</span>
+                </div>
+              )}
               <p className="text-[10px] text-slate-500 font-bold mt-1">
-                Only connected agencies in the system are listed.
+                Only agencies registered in the Surag-AI network are listed.
               </p>
             </div>
 
@@ -139,7 +161,7 @@ function ConnectionRequestModalInner({
 
             {/* Info box */}
             <div className="p-3 bg-blue-50 border-2 border-blue-400 text-[11px] font-bold text-blue-800 font-sans leading-relaxed">
-              ℹ️ Once accepted, {partner.label} will gain full read/write access to this case.
+              ℹ️ Once accepted, {selectedAgency?.name ?? 'the target agency'} will gain full read/write access to this case.
               Evidence added by either agency will sync in real-time to both portals.
             </div>
 
@@ -153,11 +175,11 @@ function ConnectionRequestModalInner({
               </button>
               <button
                 onClick={handleSend}
-                disabled={!brief.trim()}
+                disabled={!brief.trim() || !selectedTarget}
                 className="flex items-center gap-2 px-5 py-2 bg-black text-[#F5C842] font-black text-xs border-2 border-black shadow-brutal disabled:opacity-40 hover:bg-slate-900 transition active:translate-x-0.5 active:translate-y-0.5"
               >
                 <Send className="w-4 h-4" />
-                SEND CONNECTION REQUEST
+                SEND TO {(selectedAgency?.name ?? selectedTarget).toUpperCase()}
               </button>
             </div>
           </div>

@@ -395,8 +395,16 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
       const extraction = await extractDocumentIntelligence(newDoc, state.entities);
 
       setState((prev) => {
+        // ── Case isolation: if this is a brand-new case, discard ALL data from
+        //    the previous session so nothing bleeds across cases.
+        const isNewCase = prev.activeCaseId !== null && prev.activeCaseId !== caseId;
+        const baseEntities   = isNewCase ? [] : prev.entities;
+        const baseEvents      = isNewCase ? [] : prev.events;
+        const baseRelationships = isNewCase ? [] : prev.relationships;
+        const baseContradictions = isNewCase ? [] : prev.contradictions;
+
         const newEntityRecords: Entity[] = extraction.entities
-          .filter((raw) => !prev.entities.some((e) => e.name.toLowerCase() === raw.name.toLowerCase()))
+          .filter((raw) => !baseEntities.some((e) => e.name.toLowerCase() === raw.name.toLowerCase()))
           .map((raw, idx) => ({
             id: crypto.randomUUID(),
             case_id: caseId,
@@ -407,7 +415,7 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
             first_seen_at: new Date().toISOString(),
           }));
 
-        const allEntities = [...prev.entities, ...newEntityRecords];
+        const allEntities = [...baseEntities, ...newEntityRecords];
 
         const newEventRecords: Event[] = extraction.events.map((raw, idx) => ({
           id: crypto.randomUUID(),
@@ -424,7 +432,11 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
           created_at: new Date().toISOString(),
         }));
 
-        const allEvents = [...prev.events, ...newEventRecords];
+        // Only accumulate events that belong to the current case
+        const allEvents = [
+          ...baseEvents.filter((e) => e.case_id === caseId),
+          ...newEventRecords,
+        ];
 
         const newRelationshipRecords: Relationship[] = extraction.suggestedRelationships.map(
           (raw, idx) => {
@@ -451,13 +463,13 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
           }
         );
 
-        const allRelationships = [...prev.relationships, ...newRelationshipRecords];
+        const allRelationships = [...baseRelationships, ...newRelationshipRecords];
 
-        // Contradiction detection runs synchronously on existing events
+        // Contradiction detection: only run against events scoped to this case
         const candidateContradictions = findCandidateContradictions(
           allEvents,
           allEntities,
-          prev.contradictions
+          baseContradictions
         );
         const newContradictionRecords: Contradiction[] = candidateContradictions.map((c, i) => ({
           id: crypto.randomUUID(),
@@ -471,9 +483,9 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         }));
 
         const allContradictions = [
-          ...prev.contradictions,
+          ...baseContradictions,
           ...newContradictionRecords.filter(
-            (nc) => !prev.contradictions.some((pc) => pc.id === nc.id)
+            (nc) => !baseContradictions.some((pc) => pc.id === nc.id)
           ),
         ];
 

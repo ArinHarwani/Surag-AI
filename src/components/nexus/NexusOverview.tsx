@@ -283,10 +283,12 @@ export const NexusOverview: React.FC<NexusOverviewProps> = ({
             </div>
             <div className="my-2">
               <div className="text-3xl lg:text-4xl font-black text-[#E53E3E]">
-                {flaggedContradictions.length} CRIT
+                {flaggedContradictions.length > 0 ? `${flaggedContradictions.length} CRIT` : '0'}
               </div>
               <p className="text-[11px] text-red-800 font-bold mt-0.5">
-                1,560 km/h Velocity Collision
+                {flaggedContradictions.length > 0
+                  ? flaggedContradictions[0].description.slice(0, 60) + '…'
+                  : 'No active contradiction flags'}
               </p>
             </div>
             <span className="text-[10px] font-black text-red-800 flex items-center space-x-1 pt-1 border-t border-red-300">
@@ -310,7 +312,13 @@ export const NexusOverview: React.FC<NexusOverviewProps> = ({
               </h2>
             </div>
             <p className="text-xs text-slate-600 font-bold mt-0.5">
-              Corridor Event Sequence across Jodhpur, Bilara, Kota &amp; Rawatbhata
+              {timelineEvents.length > 0
+                ? Array.from(
+                    new Set(timelineEvents.map((e) => e.location_text).filter(Boolean))
+                  )
+                    .slice(0, 4)
+                    .join(' → ')
+                : 'No events recorded yet'}
             </p>
           </div>
 

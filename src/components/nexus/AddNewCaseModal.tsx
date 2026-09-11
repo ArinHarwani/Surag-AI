@@ -21,16 +21,21 @@ interface AddNewCaseModalProps {
   onClose: () => void;
   /** The portal this modal is being opened from — always the filing agency */
   filingAgency: AgencySlug;
+  /**
+   * If true, the modal skips the Case Details step and goes straight to
+   * evidence upload, appending the new evidence to the existing active case.
+   */
+  isAddingEvidence?: boolean;
 }
 
 type Step = 'details' | 'evidence';
 
-function AddNewCaseModalInner({ onClose, filingAgency }: AddNewCaseModalProps) {
-  const { ingestDocument, isProcessing, processingStatusText, agencies } = useInvestigation();
+function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false }: AddNewCaseModalProps) {
+  const { ingestDocument, isProcessing, processingStatusText, agencies, activeCaseName } = useInvestigation();
 
-  const [step, setStep] = useState<Step>('details');
+  const [step, setStep] = useState<Step>(isAddingEvidence ? 'evidence' : 'details');
 
-  // Case-level fields
+  // Case-level fields (only used when creating a new case)
   const [caseName, setCaseName] = useState('');
   const [caseNumber, setCaseNumber] = useState('');
   const [caseDescription, setCaseDescription] = useState('');
@@ -136,26 +141,33 @@ function AddNewCaseModalInner({ onClose, filingAgency }: AddNewCaseModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!caseName.trim()) return;
 
-    const fullCaseName = caseNumber.trim()
-      ? `${caseNumber.trim()}: ${caseName.trim()}`
-      : caseName.trim();
+    // When adding evidence, reuse the existing case name from context
+    const resolvedCaseName = isAddingEvidence
+      ? activeCaseName ?? 'Active Case'
+      : caseNumber.trim()
+        ? `${caseNumber.trim()}: ${caseName.trim()}`
+        : caseName.trim();
 
-    const bodyText = [
-      caseDescription.trim() ? `Case Brief: ${caseDescription.trim()}` : '',
-      contentText.trim() ? `\n\n--- Evidence Record ---\n${contentText.trim()}` : '',
-    ]
-      .filter(Boolean)
-      .join('');
+    // For new cases, require a name; for evidence additions, it's always valid
+    if (!isAddingEvidence && !caseName.trim()) return;
+
+    const bodyText = isAddingEvidence
+      ? contentText.trim() || `New evidence: ${evidenceTitle.trim()}`
+      : [
+          caseDescription.trim() ? `Case Brief: ${caseDescription.trim()}` : '',
+          contentText.trim() ? `\n\n--- Evidence Record ---\n${contentText.trim()}` : '',
+        ]
+          .filter(Boolean)
+          .join('');
 
     await ingestDocument({
-      title: evidenceTitle.trim() || fullCaseName,
-      content_text: bodyText || `New case opened: ${fullCaseName}`,
+      title: evidenceTitle.trim() || resolvedCaseName,
+      content_text: bodyText || `New case opened: ${resolvedCaseName}`,
       agency_slug: filingAgency,
       file_type: fileType,
       uploaded_by: author.trim() || undefined,
-      caseName: fullCaseName,
+      caseName: resolvedCaseName,
     });
 
     onClose();
@@ -197,11 +209,15 @@ function AddNewCaseModalInner({ onClose, filingAgency }: AddNewCaseModalProps) {
               <FolderPlus className="w-4 h-4 text-black" />
             </div>
             <div>
-              <h2 className="text-sm font-black uppercase tracking-widest">ADD NEW CASE</h2>
+              <h2 className="text-sm font-black uppercase tracking-widest">
+                {isAddingEvidence ? 'ADD EVIDENCE TO CASE' : 'ADD NEW CASE'}
+              </h2>
               <p className="text-[10px] font-bold" style={{ color: agencyColor }}>
                 Filing Agency:{' '}
                 <span className="uppercase">{agencyCfg?.badge ?? filingAgency}</span>
-                {' '}— {step === 'details' ? 'Step 1: Case Identity' : 'Step 2: Evidence File'}
+                {isAddingEvidence
+                  ? ` — Case: ${activeCaseName ?? 'Active Case'}`
+                  : ` — ${step === 'details' ? 'Step 1: Case Identity' : 'Step 2: Evidence File'}`}
               </p>
             </div>
           </div>
@@ -214,23 +230,25 @@ function AddNewCaseModalInner({ onClose, filingAgency }: AddNewCaseModalProps) {
           </button>
         </div>
 
-        {/* Step tabs */}
-        <div className="flex border-b-2 border-black shrink-0">
-          {(['details', 'evidence'] as Step[]).map((s, i) => (
-            <button
-              key={s}
-              onClick={() => setStep(s)}
-              className={`flex-1 px-4 py-2.5 text-[11px] font-black uppercase tracking-wider transition border-r last:border-r-0 border-black ${
-                step === s
-                  ? 'text-black'
-                  : 'bg-[#FBF9F5] text-slate-500 hover:bg-slate-100'
-              }`}
-              style={step === s ? { backgroundColor: '#F5C842' } : {}}
-            >
-              {i + 1}. {s === 'details' ? 'Case Details' : 'Evidence File'}
-            </button>
-          ))}
-        </div>
+        {/* Step tabs — hidden when just adding evidence to existing case */}
+        {!isAddingEvidence && (
+          <div className="flex border-b-2 border-black shrink-0">
+            {(['details', 'evidence'] as Step[]).map((s, i) => (
+              <button
+                key={s}
+                onClick={() => setStep(s)}
+                className={`flex-1 px-4 py-2.5 text-[11px] font-black uppercase tracking-wider transition border-r last:border-r-0 border-black ${
+                  step === s
+                    ? 'text-black'
+                    : 'bg-[#FBF9F5] text-slate-500 hover:bg-slate-100'
+                }`}
+                style={step === s ? { backgroundColor: '#F5C842' } : {}}
+              >
+                {i + 1}. {s === 'details' ? 'Case Details' : 'Evidence File'}
+              </button>
+            ))}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
           {/* ── STEP 1: Case Details ─────────────────────────────────────────── */}
@@ -309,9 +327,16 @@ function AddNewCaseModalInner({ onClose, filingAgency }: AddNewCaseModalProps) {
           {/* ── STEP 2: Evidence File ─────────────────────────────────────────── */}
           {step === 'evidence' && (
             <div className="p-6 space-y-4">
-              <p className="text-[11px] text-slate-600 font-bold border-l-4 border-[#F5C842] pl-3 bg-yellow-50 py-2 pr-3">
-                Attach the first piece of evidence. You can add more later from the Evidence Vault.
-              </p>
+              {!isAddingEvidence && (
+                <p className="text-[11px] text-slate-600 font-bold border-l-4 border-[#F5C842] pl-3 bg-yellow-50 py-2 pr-3">
+                  Attach the first piece of evidence. You can add more later from the Evidence Vault.
+                </p>
+              )}
+              {isAddingEvidence && (
+                <p className="text-[11px] text-slate-600 font-bold border-l-4 border-emerald-500 pl-3 bg-emerald-50 py-2 pr-3">
+                  Adding evidence to: <strong>{activeCaseName ?? 'Active Case'}</strong>. This will be extracted and fused into the existing case intelligence.
+                </p>
+              )}
 
               {/* Drop zone */}
               <div
@@ -426,32 +451,45 @@ function AddNewCaseModalInner({ onClose, filingAgency }: AddNewCaseModalProps) {
 
               {/* Actions */}
               <div className="flex items-center justify-between pt-1 border-t border-slate-200 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setStep('details')}
-                  className="px-4 py-2 bg-white border-2 border-black text-xs font-black uppercase hover:bg-slate-100 transition"
-                >
-                  ← Back
-                </button>
-                <div className="flex gap-2">
+                {/* Back button: only show if we have a step before (not in add-evidence-only mode) */}
+                {!isAddingEvidence ? (
+                  <button
+                    type="button"
+                    onClick={() => setStep('details')}
+                    className="px-4 py-2 bg-white border-2 border-black text-xs font-black uppercase hover:bg-slate-100 transition"
+                  >
+                    ← Back
+                  </button>
+                ) : (
                   <button
                     type="button"
                     onClick={onClose}
-                    className="px-4 py-2 bg-white border-2 border-black text-xs font-bold hover:bg-slate-100 transition"
+                    className="px-4 py-2 bg-white border-2 border-black text-xs font-black uppercase hover:bg-slate-100 transition"
                   >
-                    Skip Evidence
+                    Cancel
                   </button>
+                )}
+                <div className="flex gap-2">
+                  {!isAddingEvidence && (
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="px-4 py-2 bg-white border-2 border-black text-xs font-bold hover:bg-slate-100 transition"
+                    >
+                      Skip Evidence
+                    </button>
+                  )}
                   <button
                     type="submit"
-                    disabled={isProcessing || isTranscribing || !caseName.trim()}
+                    disabled={isProcessing || isTranscribing || (!isAddingEvidence && !caseName.trim())}
                     className="flex items-center gap-2 px-5 py-2 bg-[#F5C842] hover:bg-[#EAB308] disabled:opacity-50 text-black font-black text-xs border-2 border-black shadow-brutal transition active:translate-x-0.5 active:translate-y-0.5"
                   >
                     <Sparkles className="w-4 h-4" />
                     {isTranscribing
                       ? 'Transcribing...'
                       : isProcessing
-                      ? 'Creating Case...'
-                      : 'Create Case & Extract Intel'}
+                      ? (isAddingEvidence ? 'Adding Evidence...' : 'Creating Case...')
+                      : (isAddingEvidence ? 'Add Evidence & Extract Intel' : 'Create Case & Extract Intel')}
                   </button>
                 </div>
               </div>

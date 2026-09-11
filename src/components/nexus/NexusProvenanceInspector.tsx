@@ -2,6 +2,7 @@
 
 import React, { useRef } from 'react';
 import { Document } from '@/types/investigation';
+import { useInvestigation } from '@/lib/store/investigation-context';
 import { 
   X, 
   FileText, 
@@ -31,6 +32,7 @@ export const NexusProvenanceInspector: React.FC<ProvenanceInspectorProps> = ({
 }) => {
   const [copied, setCopied] = React.useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { agencies } = useInvestigation();
 
   if (!document) return null;
 
@@ -38,6 +40,13 @@ export const NexusProvenanceInspector: React.FC<ProvenanceInspectorProps> = ({
   const filename = document.title;
   const fullContent = document.content_text || '';
   const displaySnippet = snippet || fullContent.slice(0, 200);
+
+  // Resolve agency label from the agencies map using the UUID-based agency_id
+  const depositingAgencyLabel = document.agency_id
+    ? Object.values(agencies).find((a) => a.id === document.agency_id)?.name ??
+      // fallback: use slug-based label if present in agency_id string
+      (document.agency_id.toLowerCase().includes('jod') ? 'Jodhpur Police HQ' : 'Unknown Agency')
+    : 'Unknown Agency';
 
   const copyCitation = () => {
     const text = `[CITATION: ${filename}] "${displaySnippet}" (Offset: ${sourceOffset})`;
@@ -207,7 +216,7 @@ export const NexusProvenanceInspector: React.FC<ProvenanceInspectorProps> = ({
             <div>
               <span className="text-slate-600 font-bold block">Depositing Agency:</span>
               <span className="font-black text-black">
-                {document.agency_id.includes('jod') ? 'Jodhpur Police' : 'Kota Police SIU'}
+                {depositingAgencyLabel}
               </span>
             </div>
             <div>
