@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_BACKUP_KEY = process.env.GEMINI_BACKUP_KEY || '';
+const GEMINI_BACKUP_KEY_2 = process.env.GEMINI_BACKUP_KEY_2 || '';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +28,7 @@ Format the output as clean, readable text.`;
     let success = false;
     let lastError = '';
 
-    const keys = [GEMINI_API_KEY, GEMINI_BACKUP_KEY].filter(Boolean);
+    const keys = [GEMINI_API_KEY, GEMINI_BACKUP_KEY, GEMINI_BACKUP_KEY_2].filter(Boolean);
 
     if (keys.length === 0) {
       return NextResponse.json({ error: 'No Gemini API keys configured' }, { status: 500 });
