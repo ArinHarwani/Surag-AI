@@ -133,15 +133,6 @@ export const NexusSidebar: React.FC<NexusSidebarProps> = ({
           })}
         </div>
       </div>
-
-      {/* Clean Minimal Custody Status Bar */}
-      <div className="p-3 border-t border-black/20 text-[10px] text-slate-600 font-bold flex items-center justify-between bg-[#EFECE6]/50">
-        <div className="flex items-center space-x-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 border border-black animate-pulse" />
-          <span className="font-black text-slate-800">CUSTODY SYNCED</span>
-        </div>
-        <span className="text-[9px] font-black uppercase text-slate-500">PS #16</span>
-      </div>
     </aside>
   );
 };
