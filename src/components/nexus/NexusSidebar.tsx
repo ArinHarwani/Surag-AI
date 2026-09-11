@@ -13,7 +13,8 @@ import {
   Activity, 
   Radio,
   CheckCircle2,
-  Database
+  Database,
+  UserCheck
 } from 'lucide-react';
 
 export type NexusNavTab = 
@@ -22,6 +23,7 @@ export type NexusNavTab =
   | 'graph' 
   | 'contradictions' 
   | 'timeline' 
+  | 'authors'
   | 'dossier';
 
 interface NexusSidebarProps {
@@ -71,6 +73,12 @@ export const NexusSidebar: React.FC<NexusSidebarProps> = ({
       label: 'TIMELINE & GEO',
       icon: Clock,
       badge: 'SYNCED'
+    },
+    {
+      id: 'authors' as NexusNavTab,
+      label: 'EVIDENCE AUTHORS',
+      icon: UserCheck,
+      badge: '4 ACTIVE'
     },
     {
       id: 'dossier' as NexusNavTab,

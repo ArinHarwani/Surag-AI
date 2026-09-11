@@ -273,6 +273,7 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
     agency_slug: 'jodhpur' | 'kota';
     file_type: Document['file_type'];
     media_url?: string;
+    uploaded_by?: string;
   }) => {
     setIsProcessing(true);
     setProcessingStatusText('Hashing evidence & routing through detective intelligence pipeline...');
@@ -284,7 +285,7 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         id: docId,
         case_id: caseInfo.id,
         agency_id: agency.id,
-        uploaded_by: `${agency.name} (Unit Alpha)`,
+        uploaded_by: docData.uploaded_by || `${agency.name} (Field Unit)`,
         title: docData.title,
         file_type: docData.file_type,
         content_text: docData.content_text,

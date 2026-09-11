@@ -10,6 +10,7 @@ import { NexusGraph } from './NexusGraph';
 import { NexusContradictions } from './NexusContradictions';
 import { NexusTimelineMap } from './NexusTimelineMap';
 import { NexusDossier } from './NexusDossier';
+import { NexusAuthors } from './NexusAuthors';
 import { NexusProvenanceInspector } from './NexusProvenanceInspector';
 import { EvidenceDropzone } from '@/components/vault/EvidenceDropzone';
 
@@ -92,6 +93,7 @@ export const NexusShell: React.FC<NexusShellProps> = ({
           onSelectAgency={setActiveAgency}
           onOpenUpload={() => setIsUploadOpen(true)}
           onResetCase={resetToDefaultCase}
+          onSelectTab={setCurrentTab}
           isProcessing={isProcessing}
           processingText={processingStatusText}
         />
@@ -145,6 +147,14 @@ export const NexusShell: React.FC<NexusShellProps> = ({
             />
           )}
 
+          {currentTab === 'authors' && (
+            <NexusAuthors
+              documents={documents}
+              onOpenProvenance={handleOpenProvenance}
+              onSelectTab={setCurrentTab}
+            />
+          )}
+
           {currentTab === 'dossier' && (
             <NexusDossier
               documents={documents}
@@ -164,10 +174,10 @@ export const NexusShell: React.FC<NexusShellProps> = ({
         />
       )}
 
-      {/* 4. Evidence Ingestion Modal */}
+      {/* 4. Evidence Ingestion Modal (Neo-brutalist Light Theme) */}
       {isUploadOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="relative w-full max-w-2xl bg-[#12141A] border border-[#232731] rounded-lg shadow-2xl p-6">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="relative w-full max-w-2xl bg-white border-2 border-black shadow-brutal-lg p-0">
             <EvidenceDropzone
               onClose={() => setIsUploadOpen(false)}
               defaultAgencySlug={activeAgency === 'all' ? 'jodhpur' : activeAgency}

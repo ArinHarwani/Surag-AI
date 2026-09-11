@@ -18,8 +18,12 @@ import {
   ExternalLink,
   ChevronRight,
   Info,
-  X
+  X,
+  Map,
+  Columns,
+  Network
 } from 'lucide-react';
+import { NexusGeoGraphMap } from './NexusGeoGraphMap';
 
 // Dynamic import with SSR disabled because react-force-graph uses window & canvas
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
@@ -63,6 +67,7 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
 
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'map' | 'force' | 'split'>('map');
   const [activeRelForModal, setActiveRelForModal] = useState<Relationship | null>(null);
   const [activeNodeForDrawer, setActiveNodeForDrawer] = useState<Entity | null>(null);
 
@@ -119,7 +124,12 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
       color: TYPE_COLORS[e.type] || '#64748B',
     }));
 
-    return { nodes: activeNodes, links: activeLinks };
+    return { 
+      nodes: activeNodes, 
+      links: activeLinks,
+      rawEntities: filteredEntities,
+      rawRelationships: relationships.filter((r) => entityIdSet.has(r.source_entity_id) && entityIdSet.has(r.target_entity_id))
+    };
   }, [entities, relationships, activeAgency, agencies, selectedTypeFilter, searchQuery]);
 
   // Custom node rendering for crisp command canvas aesthetic on light theme
@@ -219,9 +229,9 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
   return (
     <div ref={containerRef} className="relative w-full h-full min-h-[620px] bg-[#EFECE6] flex flex-col overflow-hidden font-mono select-none text-black">
       {/* Top Tactical Command HUD (Light theme with black borders) */}
-      <div className="absolute top-4 left-4 right-4 z-10 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
-        {/* Filter Pills & Search */}
-        <div className="flex flex-wrap items-center gap-2 pointer-events-auto bg-white border-2 border-black p-2 shadow-brutal">
+      <div className="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        {/* Left: Filter Pills & Search */}
+        <div className="flex flex-wrap items-center gap-2 pointer-events-auto bg-white border-2 border-black p-1.5 shadow-brutal">
           <div className="flex items-center gap-1 px-1.5 text-xs text-black uppercase font-black">
             <Filter className="w-3.5 h-3.5 text-black" />
             <span>TYPE:</span>
@@ -232,9 +242,9 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
               <button
                 key={btn.value}
                 onClick={() => setSelectedTypeFilter(btn.value)}
-                className={`px-2.5 py-1 text-xs font-black transition flex items-center gap-1 border ${
+                className={`px-2 py-0.5 text-xs font-black transition flex items-center gap-1 border ${
                   selectedTypeFilter === btn.value
-                    ? 'bg-[#F5C842] text-black border-black shadow-sm'
+                    ? 'bg-[#F5C842] text-black border-black shadow-xs'
                     : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-100'
                 }`}
               >
@@ -247,19 +257,19 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
           </div>
 
           {/* Search box */}
-          <div className="relative ml-2">
-            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
+          <div className="relative ml-1">
+            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2 top-2" />
             <input
               type="text"
               placeholder="SEARCH GRAPH..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-[#FBF9F5] border border-black text-black text-xs rounded-none pl-8 pr-3 py-1 outline-none w-44 focus:w-60 focus:bg-white transition-all font-sans font-bold"
+              className="bg-[#FBF9F5] border border-black text-black text-xs rounded-none pl-7 pr-3 py-0.5 outline-none w-36 focus:w-52 focus:bg-white transition-all font-sans font-bold"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-2 text-slate-500 hover:text-black"
+                className="absolute right-1.5 top-1.5 text-slate-500 hover:text-black"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -267,72 +277,178 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
           </div>
         </div>
 
-        {/* Legend & Controls */}
-        <div className="flex items-center gap-3 pointer-events-auto bg-white border-2 border-black px-3.5 py-2 shadow-brutal text-xs font-bold">
-          <div className="flex items-center gap-4">
+        {/* Center: Graph View Mode Switcher (OpenStreetMap vs Force vs Split) */}
+        <div className="flex items-center bg-white border-2 border-black p-1 shadow-brutal pointer-events-auto text-xs font-bold">
+          <button
+            onClick={() => setViewMode('map')}
+            className={`px-3 py-1 text-xs font-black flex items-center space-x-1.5 transition ${
+              viewMode === 'map'
+                ? 'bg-[#F5C842] text-black border border-black shadow-xs'
+                : 'text-slate-700 hover:text-black hover:bg-slate-100'
+            }`}
+          >
+            <Map className="w-3.5 h-3.5 text-black" />
+            <span>OPENSTREETMAP GEO-GRAPH</span>
+          </button>
+
+          <button
+            onClick={() => setViewMode('force')}
+            className={`px-3 py-1 text-xs font-black flex items-center space-x-1.5 transition ${
+              viewMode === 'force'
+                ? 'bg-[#F5C842] text-black border border-black shadow-xs'
+                : 'text-slate-700 hover:text-black hover:bg-slate-100'
+            }`}
+          >
+            <Network className="w-3.5 h-3.5 text-black" />
+            <span>TOPOLOGY FORCE</span>
+          </button>
+
+          <button
+            onClick={() => setViewMode('split')}
+            className={`px-2.5 py-1 text-xs font-black flex items-center space-x-1.5 transition ${
+              viewMode === 'split'
+                ? 'bg-[#F5C842] text-black border border-black shadow-xs'
+                : 'text-slate-700 hover:text-black hover:bg-slate-100'
+            }`}
+          >
+            <Columns className="w-3.5 h-3.5 text-black" />
+            <span>SPLIT</span>
+          </button>
+        </div>
+
+        {/* Right: Legend & Recenter */}
+        <div className="flex items-center gap-3 pointer-events-auto bg-white border-2 border-black px-3 py-1.5 shadow-brutal text-xs font-bold">
+          <div className="hidden sm:flex items-center gap-3">
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-[#0284C7] border border-black" />
-              <span className="text-black">JODHPUR</span>
+              <span className="text-black text-[11px]">JODHPUR</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-[#D97706] border border-black" />
-              <span className="text-black">KOTA</span>
+              <span className="text-black text-[11px]">KOTA</span>
             </div>
-            <div className="flex items-center gap-1.5 border-l border-black pl-3">
-              <span className="w-3.5 h-1 bg-[#D97706]" />
-              <span className="text-[#D97706] font-black">AI SUGGESTED</span>
+            <div className="flex items-center gap-1 border-l border-black pl-2">
+              <span className="w-3 h-1 bg-[#D97706]" />
+              <span className="text-[#D97706] font-black text-[10px]">SUGGESTED</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3.5 h-1 bg-[#10B981]" />
-              <span className="text-emerald-700 font-black">CONFIRMED</span>
+            <div className="flex items-center gap-1">
+              <span className="w-3 h-1 bg-[#10B981]" />
+              <span className="text-emerald-700 font-black text-[10px]">CONFIRMED</span>
             </div>
           </div>
 
           <button
             onClick={handleZoomFit}
             title="Recenter & Fit Graph"
-            className="ml-2 p-1.5 bg-white border border-black hover:bg-slate-100 text-black shadow-xs transition"
+            className="p-1 bg-white border border-black hover:bg-slate-100 text-black shadow-xs transition"
           >
             <Maximize2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Force Graph Canvas Area */}
-      <div className="w-full h-full flex-1">
-        <ForceGraph2D
-          ref={fgRef}
-          width={dimensions.width}
-          height={dimensions.height}
-          graphData={graphData}
-          backgroundColor="#EFECE6"
-          nodeCanvasObject={paintNode}
-          nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, (node.val || 7) * 2, 0, 2 * Math.PI, false);
-            ctx.fill();
-          }}
-          linkLabel={(l: any) =>
-            `${l.relationship_type.toUpperCase()} • ${Math.round(l.confidence * 100)}% CONFIDENCE • CLICK TO ARBITRATE`
-          }
-          linkColor={getLinkColor}
-          linkWidth={(l: any) => (l.status === 'confirmed' ? 2.5 : 2)}
-          linkDirectionalParticles={(l: any) => (l.status === 'ai_suggested' ? 4 : 1)}
-          linkDirectionalParticleSpeed={(l: any) => (l.status === 'ai_suggested' ? 0.006 : 0.002)}
-          linkDirectionalParticleWidth={2.5}
-          linkDirectionalParticleColor={(l: any) => (l.status === 'ai_suggested' ? '#D97706' : '#10B981')}
-          linkDirectionalArrowLength={4}
-          linkDirectionalArrowRelPos={1}
-          linkCurvature={0.12}
-          onNodeClick={(node: any) => {
-            const raw = entities.find((e) => e.id === node.id);
-            if (raw) setActiveNodeForDrawer(raw);
-          }}
-          onLinkClick={handleLinkClick}
-          cooldownTicks={120}
-          d3VelocityDecay={0.25}
-        />
+      {/* Main Canvas Area: OpenStreetMap Geo-Graph, Force Graph, or Split */}
+      <div className="w-full h-full flex-1 flex flex-col pt-16 relative">
+        {viewMode === 'map' && (
+          <div className="w-full h-full flex-1 relative">
+            <NexusGeoGraphMap
+              entities={graphData.rawEntities}
+              relationships={graphData.rawRelationships}
+              onSelectEntity={(e) => setActiveNodeForDrawer(e)}
+              onSelectRelationship={(r) => setActiveRelForModal(r)}
+              selectedEntityId={activeNodeForDrawer?.id}
+              searchQuery={searchQuery}
+            />
+          </div>
+        )}
+
+        {viewMode === 'force' && (
+          <div className="w-full h-full flex-1 relative">
+            <ForceGraph2D
+              ref={fgRef}
+              width={dimensions.width}
+              height={dimensions.height - 70}
+              graphData={graphData}
+              backgroundColor="#EFECE6"
+              nodeCanvasObject={paintNode}
+              nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, (node.val || 7) * 2, 0, 2 * Math.PI, false);
+                ctx.fill();
+              }}
+              linkLabel={(l: any) =>
+                `${l.relationship_type.toUpperCase()} • ${Math.round(l.confidence * 100)}% CONFIDENCE • CLICK TO ARBITRATE`
+              }
+              linkColor={getLinkColor}
+              linkWidth={(l: any) => (l.status === 'confirmed' ? 2.5 : 2)}
+              linkDirectionalParticles={(l: any) => (l.status === 'ai_suggested' ? 4 : 1)}
+              linkDirectionalParticleSpeed={(l: any) => (l.status === 'ai_suggested' ? 0.006 : 0.002)}
+              linkDirectionalParticleWidth={2.5}
+              linkDirectionalParticleColor={(l: any) => (l.status === 'ai_suggested' ? '#D97706' : '#10B981')}
+              linkDirectionalArrowLength={4}
+              linkDirectionalArrowRelPos={1}
+              linkCurvature={0.12}
+              onNodeClick={(node: any) => {
+                const raw = entities.find((e) => e.id === node.id);
+                if (raw) setActiveNodeForDrawer(raw);
+              }}
+              onLinkClick={handleLinkClick}
+              cooldownTicks={120}
+              d3VelocityDecay={0.25}
+            />
+          </div>
+        )}
+
+        {viewMode === 'split' && (
+          <div className="w-full h-full flex-1 grid grid-cols-1 lg:grid-cols-2 gap-2 p-2">
+            <div className="w-full h-full min-h-[400px]">
+              <NexusGeoGraphMap
+                entities={graphData.rawEntities}
+                relationships={graphData.rawRelationships}
+                onSelectEntity={(e) => setActiveNodeForDrawer(e)}
+                onSelectRelationship={(r) => setActiveRelForModal(r)}
+                selectedEntityId={activeNodeForDrawer?.id}
+                searchQuery={searchQuery}
+              />
+            </div>
+            <div className="w-full h-full min-h-[400px] border-2 border-black bg-[#EFECE6] relative overflow-hidden shadow-brutal">
+              <ForceGraph2D
+                ref={fgRef}
+                width={dimensions.width ? Math.floor(dimensions.width / 2) - 10 : 450}
+                height={dimensions.height - 80}
+                graphData={graphData}
+                backgroundColor="#EFECE6"
+                nodeCanvasObject={paintNode}
+                nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {
+                  ctx.fillStyle = color;
+                  ctx.beginPath();
+                  ctx.arc(node.x, node.y, (node.val || 7) * 2, 0, 2 * Math.PI, false);
+                  ctx.fill();
+                }}
+                linkLabel={(l: any) =>
+                  `${l.relationship_type.toUpperCase()} • ${Math.round(l.confidence * 100)}% CONFIDENCE`
+                }
+                linkColor={getLinkColor}
+                linkWidth={(l: any) => (l.status === 'confirmed' ? 2.5 : 2)}
+                linkDirectionalParticles={(l: any) => (l.status === 'ai_suggested' ? 4 : 1)}
+                linkDirectionalParticleSpeed={(l: any) => (l.status === 'ai_suggested' ? 0.006 : 0.002)}
+                linkDirectionalParticleWidth={2.5}
+                linkDirectionalParticleColor={(l: any) => (l.status === 'ai_suggested' ? '#D97706' : '#10B981')}
+                linkDirectionalArrowLength={4}
+                linkDirectionalArrowRelPos={1}
+                linkCurvature={0.12}
+                onNodeClick={(node: any) => {
+                  const raw = entities.find((e) => e.id === node.id);
+                  if (raw) setActiveNodeForDrawer(raw);
+                }}
+                onLinkClick={handleLinkClick}
+                cooldownTicks={120}
+                d3VelocityDecay={0.25}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Empty State */}

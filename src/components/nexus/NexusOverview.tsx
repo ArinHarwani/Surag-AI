@@ -4,22 +4,25 @@ import React from 'react';
 import { 
   FolderArchive, 
   Network, 
-  ShieldCheck, 
   AlertOctagon, 
   Lock, 
   UploadCloud, 
-  CheckCircle2, 
-  Sparkles, 
-  ArrowRight, 
   Clock, 
-  Radio, 
   FileText, 
   Activity, 
-  Cpu,
-  Layers,
-  Search,
+  Sparkles,
+  ArrowRight, 
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  ShieldAlert,
+  UserCheck,
+  Eye,
+  MapPin,
+  Car,
+  User,
+  Radio,
+  Zap,
+  ShieldCheck
 } from 'lucide-react';
 import { Document, Entity, Relationship, Contradiction, Event } from '@/types/investigation';
 
@@ -51,382 +54,499 @@ export const NexusOverview: React.FC<NexusOverviewProps> = ({
   const pendingRelationships = relationships.filter((r) => r.status === 'ai_suggested');
   const flaggedContradictions = contradictions.filter((c) => c.status === 'flagged');
 
+  // Sorted timeline events
+  const timelineEvents = [...events].sort(
+    (a, b) => new Date(a.event_timestamp).getTime() - new Date(b.event_timestamp).getTime()
+  );
+
+  // Evidence Authors data mapped to documents
+  const authors = [
+    {
+      name: 'Inspector S. Rathore',
+      unit: 'Jodhpur Police (Crime Branch)',
+      badge: 'RJ-JOD-042',
+      clearance: 'LEVEL 3 // SECRET',
+      filesCount: documents.filter((d) => d.uploaded_by?.toLowerCase().includes('rathore') || d.agency_id?.includes('jodhpur')).length,
+      icon: '👮‍♂️',
+      docId: 'doc-jod-witness-01'
+    },
+    {
+      name: 'Inspector V. Meena',
+      unit: 'Kota CID (Special Intelligence Unit)',
+      badge: 'RJ-KTA-118',
+      clearance: 'LEVEL 3 // SECRET',
+      filesCount: documents.filter((d) => d.uploaded_by?.toLowerCase().includes('meena') || d.title?.includes('ANPR')).length,
+      icon: '🕵️‍♂️',
+      docId: 'doc-kota-cctv-02'
+    },
+    {
+      name: 'Technical Intercept Unit (TIU)',
+      unit: 'Joint Cyber & Signals Wing (SIGINT)',
+      badge: 'SIGINT-09A',
+      clearance: 'LEVEL 4 // STRICT EYES ONLY',
+      filesCount: documents.filter((d) => d.uploaded_by?.toLowerCase().includes('intercept') || d.file_type === 'audio').length,
+      icon: '📡',
+      docId: 'doc-wiretap-audio-03'
+    },
+    {
+      name: 'State Highway Patrol Unit 4',
+      unit: 'Rajasthan Highway Interdiction Group',
+      badge: 'HWP-DIV4',
+      clearance: 'LEVEL 2 // CONFIDENTIAL',
+      filesCount: documents.filter((d) => d.uploaded_by?.toLowerCase().includes('patrol') || d.file_type === 'image').length,
+      icon: '🚔',
+      docId: 'doc-cctv-optical-04'
+    }
+  ];
+
   return (
-    <div className="p-4 lg:p-6 space-y-4 font-mono select-none text-black">
-      {/* 1. TOP BLACK COMMAND BANNER (Matches Reference Screenshot 1) */}
-      <div className="bg-[#111111] text-white p-5 border-2 border-black shadow-brutal-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            <span className="bg-[#E53E3E] text-white font-black text-[10px] px-2.5 py-0.5 uppercase tracking-wider">
-              LEVEL 4 CRISIS
-            </span>
-            <span className="text-[#F5C842] font-black text-xs uppercase tracking-wider">
-              DUAL JURISDICTION // STRICT EYES ONLY
-            </span>
-          </div>
-
-          <h1 className="text-2xl lg:text-3xl font-black uppercase tracking-tight text-white">
-            CASE #16: AARAV SINGH (MARWAR SYNDICATE)
-          </h1>
-        </div>
-
-        {/* Right side inside black box: Joint Telemetry & Delta Latency */}
-        <div className="flex items-center space-x-6 text-xs border-t md:border-t-0 md:border-l border-slate-800 pt-3 md:pt-0 md:pl-6">
+    <div className="p-4 lg:p-6 space-y-6 font-mono select-none text-black">
+      {/* ─────────────────────────────────────────────────────────────
+          SECTION 1: OVERVIEW OF CASE (Clean, Uncluttered Executive Strip)
+      ───────────────────────────────────────────────────────────── */}
+      <section className="space-y-4">
+        {/* Command Title Banner */}
+        <div className="bg-[#111111] text-white p-5 border-2 border-black shadow-brutal-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-              JOINT TELEMETRY
-            </span>
-            <div className="flex items-center space-x-1.5 mt-0.5">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-              <span className="text-white font-black text-xs">
-                JODHPUR COMMISSIONERATE ↔ KOTA SIU
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span className="bg-[#E53E3E] text-white font-black text-[10px] px-2.5 py-0.5 uppercase tracking-wider">
+                LEVEL 4 CRISIS
+              </span>
+              <span className="text-[#F5C842] font-black text-xs uppercase tracking-wider">
+                DUAL JURISDICTION // JODHPUR COMMISSIONERATE ↔ KOTA SIU
               </span>
             </div>
-          </div>
-
-          <div className="border-l border-slate-800 pl-6">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-              DELTA LATENCY
-            </span>
-            <span className="text-[#F5C842] font-black text-xs block mt-0.5">
-              18ms // ZERO UNCOMMITTED
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. ROW OF 5 KPI CARDS (Matches Reference Screenshot 1) */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {/* KPI 1: TOTAL INGESTED */}
-        <div className="bg-white border-2 border-black p-4 shadow-brutal flex flex-col justify-between">
-          <div className="flex items-center justify-between text-[11px] text-slate-700 font-bold">
-            <span className="uppercase tracking-wider">TOTAL INGESTED</span>
-            <span className="text-blue-600 font-black">📁</span>
-          </div>
-          <div className="my-2">
-            <div className="text-3xl lg:text-4xl font-black text-black">
-              {documents.length}
-            </div>
-            <p className="text-[11px] text-slate-600 font-bold mt-0.5">
-              Assets (Multi-Modal)
+            <h1 className="text-2xl lg:text-3xl font-black uppercase tracking-tight text-white">
+              CASE #16: OPERATION MARWAR SYNDICATE (AARAV SINGH)
+            </h1>
+            <p className="text-xs text-slate-300 font-sans mt-1.5 max-w-3xl leading-relaxed">
+              Active cross-district contraband trafficking nexus operating between Jodhpur and Kota along NH-25/NH-27. Synchronized intelligence fusion and cryptographic audit active across both agency terminals.
             </p>
           </div>
-        </div>
 
-        {/* KPI 2: EXTRACTED ENTITIES */}
-        <div className="bg-white border-2 border-black p-4 shadow-brutal flex flex-col justify-between">
-          <div className="flex items-center justify-between text-[11px] text-slate-700 font-bold">
-            <span className="uppercase tracking-wider">EXTRACTED ENTITIES</span>
-            <span className="text-purple-600 font-black">✛</span>
-          </div>
-          <div className="my-2">
-            <div className="text-3xl lg:text-4xl font-black text-black">
-              {entities.length}
-            </div>
-            <p className="text-[11px] text-slate-600 font-bold mt-0.5">
-              Active Graph Nodes
-            </p>
-          </div>
-        </div>
-
-        {/* KPI 3: AI CONFIDENCE */}
-        <div className="bg-white border-2 border-black p-4 shadow-brutal flex flex-col justify-between">
-          <div className="flex items-center justify-between text-[11px] text-slate-700 font-bold">
-            <span className="uppercase tracking-wider">AI CONFIDENCE</span>
-            <span className="text-cyan-600 font-black">📡</span>
-          </div>
-          <div className="my-2">
-            <div className="text-3xl lg:text-4xl font-black text-black">
-              91.8%
-            </div>
-            <p className="text-[11px] text-emerald-700 font-bold mt-0.5">
-              ↑ +1.4% fusion drift
-            </p>
-          </div>
-        </div>
-
-        {/* KPI 4: CONTRADICTIONS (Red Card in Ref) */}
-        <div className="bg-[#FEE2E2] border-2 border-black p-4 shadow-brutal flex flex-col justify-between">
-          <div className="flex items-center justify-between text-[11px] text-red-900 font-black">
-            <span className="uppercase tracking-wider">CONTRADICTIONS</span>
-            <span className="text-red-600 font-black">⚠</span>
-          </div>
-          <div className="my-2">
-            <div className="text-3xl lg:text-4xl font-black text-[#E53E3E]">
-              {flaggedContradictions.length} CRIT
-            </div>
-            <p className="text-[11px] text-red-800 font-bold mt-0.5">
-              Dual-Review Required
-            </p>
-          </div>
-        </div>
-
-        {/* KPI 5: FACT CRYPTOLOCKS (Yellow Card in Ref) */}
-        <div className="bg-[#F5C842] border-2 border-black p-4 shadow-brutal flex flex-col justify-between col-span-2 md:col-span-1">
-          <div className="flex items-center justify-between text-[11px] text-black font-black">
-            <span className="uppercase tracking-wider">FACT CRYPTOLOCKS</span>
-            <Lock className="w-4 h-4 text-black" />
-          </div>
-          <div className="my-2">
-            <div className="text-3xl lg:text-4xl font-black text-black">
-              {documents.length} / {documents.length}
-            </div>
-            <p className="text-[11px] text-black font-black mt-0.5">
-              Immutable Consensus
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. TWO-COLUMN PANEL: MULTI-MODAL VAULT INGEST & PIPELINE TICKER (Matches Reference Screenshot 1) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Left Column: MULTI-MODAL VAULT INGEST (7 cols) */}
-        <div className="lg:col-span-7 bg-white border-2 border-black p-5 shadow-brutal flex flex-col justify-between space-y-4">
-          <div>
-            <div className="flex items-center justify-between border-b-2 border-black pb-2.5 mb-3">
-              <div className="flex items-center space-x-2">
-                <UploadCloud className="w-5 h-5 text-black" />
-                <h3 className="text-sm font-black uppercase tracking-wider text-black">
-                  MULTI-MODAL VAULT INGEST
-                </h3>
-              </div>
-              <span className="bg-slate-200 text-slate-800 font-black text-[10px] px-2 py-0.5 border border-black">
-                FIPS-140-3 COMPLIANT
-              </span>
-            </div>
-
-            {/* Clickable Dashed Dropzone */}
-            <div
-              onClick={onOpenUpload}
-              className="border-2 border-dashed border-black bg-[#FBF9F5] p-6 text-center cursor-pointer transition hover:bg-white hover:border-[#F5C842] space-y-3"
-            >
-              <div className="w-10 h-10 mx-auto rounded-full bg-black text-[#F5C842] flex items-center justify-center font-bold">
-                <UploadCloud className="w-6 h-6" />
-              </div>
-
-              <div>
-                <h4 className="text-xs font-black uppercase text-black">
-                  DRAG &amp; DROP MULTI-MODAL EVIDENCE
-                </h4>
-                <p className="text-[11px] text-slate-600 font-bold uppercase mt-1">
-                  AUDIO INTERCEPTS, 4K CCTV SURVEILLANCE, RAW PDF INTEL, EXIF METADATA, VOIP PCAP DUMPS
-                </p>
-              </div>
-
-              {/* Modality Tag Pills (Matches reference screenshot 1) */}
-              <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
-                <span className="px-2 py-1 text-[10px] font-black border border-black bg-white">
-                  AUDIO (.FLAC, .WAV)
-                </span>
-                <span className="px-2 py-1 text-[10px] font-black border border-black bg-white">
-                  VIDEO (.H265, .MP4)
-                </span>
-                <span className="px-2 py-1 text-[10px] font-black border border-black bg-white">
-                  DOCUMENT (.PDF, .EML)
-                </span>
-                <span className="px-2 py-1 text-[10px] font-black border border-black bg-white">
-                  RAW PACKET (.PCAP)
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2 pt-2 border-t border-slate-200">
-            <div className="flex items-center space-x-2 text-[11px] text-slate-700 font-bold">
-              <span className="w-2 h-2 rounded-full bg-[#F5C842] border border-black" />
-              <span>Auto-Pipeline: Entity OCR + Diarization Engine v4.2</span>
-            </div>
-
+          <div className="flex items-center space-x-3 shrink-0">
             <button
               onClick={onOpenUpload}
-              className="w-full sm:w-auto px-5 py-2.5 bg-black hover:bg-slate-900 text-[#F5C842] font-black text-xs border border-black shadow-brutal flex items-center justify-center space-x-2 transition active:translate-x-0.5 active:translate-y-0.5"
+              className="px-4 py-2.5 bg-[#F5C842] hover:bg-[#EAB308] text-black font-black text-xs border-2 border-black shadow-brutal flex items-center space-x-1.5 transition active:translate-x-0.5 active:translate-y-0.5"
             >
-              <span>INGEST TO SECURE VAULT</span>
+              <UploadCloud className="w-4 h-4 text-black" />
+              <span>+ INGEST EVIDENCE</span>
+            </button>
+            <button
+              onClick={() => onSelectTab('dossier')}
+              className="px-4 py-2.5 bg-white hover:bg-slate-100 text-black font-black text-xs border-2 border-black shadow-brutal flex items-center space-x-1.5 transition active:translate-x-0.5 active:translate-y-0.5"
+            >
+              <span>CASE DOSSIER</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
-        {/* Right Column: PIPELINE TICKER (5 cols) */}
-        <div className="lg:col-span-5 bg-white border-2 border-black p-5 shadow-brutal flex flex-col justify-between space-y-4">
-          <div>
-            <div className="flex items-center justify-between border-b-2 border-black pb-2.5 mb-3">
-              <div className="flex items-center space-x-2">
-                <Activity className="w-5 h-5 text-blue-600" />
-                <h3 className="text-sm font-black uppercase tracking-wider text-black">
-                  PIPELINE TICKER
-                </h3>
-              </div>
-              <span className="text-[10px] font-black text-red-600 uppercase">
-                3 ACTIVE RUNS
-              </span>
+        {/* 4 Clean High-Contrast KPI Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {/* KPI 1: Ingested Evidence */}
+          <div 
+            onClick={() => onSelectTab('vault')}
+            className="bg-white border-2 border-black p-4 shadow-brutal cursor-pointer hover:bg-[#FBF9F5] transition flex flex-col justify-between"
+          >
+            <div className="flex items-center justify-between text-xs text-slate-700 font-bold">
+              <span className="uppercase tracking-wider">INGESTED EVIDENCE</span>
+              <FolderArchive className="w-4 h-4 text-blue-600" />
             </div>
-
-            {/* Pipeline Stage Progress Bars (Matches Reference Screenshot 1) */}
-            <div className="space-y-3">
-              {/* Stage 1 */}
-              <div className="p-3 border border-black bg-[#FBF9F5] space-y-1.5">
-                <div className="flex items-center justify-between text-xs font-black">
-                  <span className="text-red-700 flex items-center space-x-1">
-                    <span>■ AUDIO DIARIZATION</span>
-                  </span>
-                  <span className="text-blue-700">78% [SPEAKER-3]</span>
-                </div>
-                <div className="w-full bg-slate-200 h-2 border border-black">
-                  <div className="bg-blue-600 h-full w-[78%]" />
-                </div>
-                <div className="text-[10px] text-slate-600 font-mono truncate">
-                  wiretap_Intercept_CHIMERA_091023.flac → 4 unique vocal signatures
-                </div>
+            <div className="my-2">
+              <div className="text-3xl lg:text-4xl font-black text-black">
+                {documents.length}
               </div>
-
-              {/* Stage 2 */}
-              <div className="p-3 border border-black bg-[#FBF9F5] space-y-1.5">
-                <div className="flex items-center justify-between text-xs font-black">
-                  <span className="text-yellow-800 flex items-center space-x-1">
-                    <span>■ FACE RECOGNITION VECTORS</span>
-                  </span>
-                  <span className="text-emerald-700">100% [MATCH 94.2%]</span>
-                </div>
-                <div className="w-full bg-slate-200 h-2 border border-black">
-                  <div className="bg-[#F5C842] h-full w-full" />
-                </div>
-                <div className="text-[10px] text-slate-600 font-mono truncate">
-                  Rotterdam_Harbour_Cam_C4.mp4 → Suspect #4 (Aarav S.)
-                </div>
-              </div>
-
-              {/* Stage 3 */}
-              <div className="p-3 border border-black bg-[#FBF9F5] space-y-1.5">
-                <div className="flex items-center justify-between text-xs font-black">
-                  <span className="text-blue-700 flex items-center space-x-1">
-                    <span>■ GEO-SPATIAL EXTRACTION</span>
-                  </span>
-                  <span className="text-blue-700">42% [RESOLVING AIS]</span>
-                </div>
-                <div className="w-full bg-slate-200 h-2 border border-black">
-                  <div className="bg-blue-500 h-full w-[42%]" />
-                </div>
-                <div className="text-[10px] text-slate-600 font-mono truncate">
-                  Satellite_RadSat_Pass_419.tiff → Lat 26.2978, Lon 73.0232
-                </div>
-              </div>
+              <p className="text-[11px] text-slate-600 font-bold mt-0.5">
+                Multi-Modal Files (100% Locked)
+              </p>
             </div>
+            <span className="text-[10px] font-black text-blue-700 flex items-center space-x-1 pt-1 border-t border-slate-200">
+              <span>EXPLORE VAULT</span>
+              <ChevronRight className="w-3 h-3" />
+            </span>
           </div>
 
-          <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[10px] text-slate-600 font-bold uppercase">
-            <span>GPU ACCELERATOR: 4x H100 SXM</span>
-            <span>THROUGHPUT: 1.8 GB/s</span>
+          {/* KPI 2: Extracted Entities */}
+          <div 
+            onClick={() => onSelectTab('graph')}
+            className="bg-white border-2 border-black p-4 shadow-brutal cursor-pointer hover:bg-[#FBF9F5] transition flex flex-col justify-between"
+          >
+            <div className="flex items-center justify-between text-xs text-slate-700 font-bold">
+              <span className="uppercase tracking-wider">EXTRACTED ENTITIES</span>
+              <Network className="w-4 h-4 text-purple-600" />
+            </div>
+            <div className="my-2">
+              <div className="text-3xl lg:text-4xl font-black text-black">
+                {entities.length}
+              </div>
+              <p className="text-[11px] text-slate-600 font-bold mt-0.5">
+                Persons, Vehicles, Weapons, Orgs
+              </p>
+            </div>
+            <span className="text-[10px] font-black text-purple-700 flex items-center space-x-1 pt-1 border-t border-slate-200">
+              <span>OPEN GRAPH &amp; MAP</span>
+              <ChevronRight className="w-3 h-3" />
+            </span>
+          </div>
+
+          {/* KPI 3: AI Fusion Confidence */}
+          <div className="bg-white border-2 border-black p-4 shadow-brutal flex flex-col justify-between">
+            <div className="flex items-center justify-between text-xs text-slate-700 font-bold">
+              <span className="uppercase tracking-wider">AI FUSION CONFIDENCE</span>
+              <Sparkles className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div className="my-2">
+              <div className="text-3xl lg:text-4xl font-black text-black">
+                91.8%
+              </div>
+              <p className="text-[11px] text-emerald-700 font-bold mt-0.5">
+                ↑ Zero Uncommitted Delta (18ms)
+              </p>
+            </div>
+            <span className="text-[10px] font-black text-slate-600 flex items-center space-x-1 pt-1 border-t border-slate-200">
+              <span>DUAL CUSTODY CONSENSUS</span>
+            </span>
+          </div>
+
+          {/* KPI 4: Contradictions */}
+          <div 
+            onClick={() => onSelectTab('contradictions')}
+            className="bg-[#FEE2E2] border-2 border-black p-4 shadow-brutal cursor-pointer hover:bg-red-200 transition flex flex-col justify-between"
+          >
+            <div className="flex items-center justify-between text-xs text-red-900 font-black">
+              <span className="uppercase tracking-wider">CONTRADICTIONS</span>
+              <AlertOctagon className="w-4 h-4 text-red-600" />
+            </div>
+            <div className="my-2">
+              <div className="text-3xl lg:text-4xl font-black text-[#E53E3E]">
+                {flaggedContradictions.length} CRIT
+              </div>
+              <p className="text-[11px] text-red-800 font-bold mt-0.5">
+                1,560 km/h Velocity Collision
+              </p>
+            </div>
+            <span className="text-[10px] font-black text-red-800 flex items-center space-x-1 pt-1 border-t border-red-300">
+              <span>RESOLVE ARBITRATION</span>
+              <ChevronRight className="w-3 h-3" />
+            </span>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* 4. BOTTOM ROW: PENDING AI LINK HYPOTHESES & CRITICAL CONTRADICTION CENTER */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Left: Pending AI Link Hypotheses (6 cols) */}
-        <div className="lg:col-span-6 bg-white border-2 border-black p-5 shadow-brutal space-y-3">
-          <div className="flex items-center justify-between border-b-2 border-black pb-2.5">
+      {/* ─────────────────────────────────────────────────────────────
+          SECTION 2: TIMELINE PREVIEW (Clean Rajasthan Transit Sequence)
+      ───────────────────────────────────────────────────────────── */}
+      <section className="bg-white border-2 border-black p-5 shadow-brutal space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b-2 border-black pb-3">
+          <div>
+            <div className="flex items-center space-x-2">
+              <Clock className="w-5 h-5 text-black" />
+              <h2 className="text-base font-black uppercase tracking-wider text-black">
+                CHRONOLOGICAL EVENT TIMELINE
+              </h2>
+            </div>
+            <p className="text-xs text-slate-600 font-bold mt-0.5">
+              Corridor Event Sequence across Jodhpur, Bilara, Kota &amp; Rawatbhata
+            </p>
+          </div>
+
+          <button
+            onClick={() => onSelectTab('timeline')}
+            className="px-3.5 py-1.5 bg-[#F5C842] hover:bg-[#EAB308] text-black font-black text-xs border border-black shadow-brutal flex items-center space-x-1 self-start sm:self-auto"
+          >
+            <span>VIEW FULL MAP &amp; TIMELINE</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Horizontal Event Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          {timelineEvents.map((evt, idx) => {
+            const isConflict = evt.id === 'evt-kota-chambal' || evt.id === 'evt-jod-clocktower';
+            return (
+              <div
+                key={evt.id}
+                className={`p-3.5 border-2 border-black shadow-xs flex flex-col justify-between transition hover:-translate-y-0.5 ${
+                  isConflict ? 'bg-[#FFF5F5] border-red-600' : 'bg-[#FBF9F5]'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-1 mb-2">
+                    <span className="text-[10px] font-black px-1.5 py-0.5 bg-black text-[#F5C842] border border-black">
+                      #{idx + 1}
+                    </span>
+                    <span className={`text-[10px] font-black ${isConflict ? 'text-red-700' : 'text-slate-700'}`}>
+                      {new Date(evt.event_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST
+                    </span>
+                  </div>
+
+                  <h3 className="text-xs font-black text-black leading-tight mb-1">
+                    {evt.location_text}
+                  </h3>
+
+                  <p className="text-[11px] text-slate-700 font-sans line-clamp-2 leading-relaxed">
+                    {evt.description}
+                  </p>
+                </div>
+
+                <div className="pt-2.5 mt-2 border-t border-slate-300 flex items-center justify-between text-[10px] font-bold">
+                  <span className="text-slate-600 uppercase">
+                    {Math.round(evt.confidence * 100)}% CONF
+                  </span>
+                  <button
+                    onClick={() => onOpenProvenance(evt.document_id, evt.source_offset, evt.description)}
+                    className="text-blue-700 hover:underline flex items-center space-x-0.5"
+                  >
+                    <span>CITE</span>
+                    <ExternalLink className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ─────────────────────────────────────────────────────────────
+          SECTION 3: GRAPHS PREVIEW (Intelligence Entity Network)
+      ───────────────────────────────────────────────────────────── */}
+      <section className="bg-white border-2 border-black p-5 shadow-brutal space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b-2 border-black pb-3">
+          <div>
             <div className="flex items-center space-x-2">
               <Network className="w-5 h-5 text-black" />
-              <h3 className="text-sm font-black uppercase tracking-wider text-black">
-                PENDING AI LINK HYPOTHESES
-              </h3>
+              <h2 className="text-base font-black uppercase tracking-wider text-black">
+                INTELLIGENCE KNOWLEDGE GRAPH
+              </h2>
             </div>
-            <span className="bg-[#F5C842] text-black font-black text-[10px] px-2 py-0.5 border border-black">
-              {pendingRelationships.length} CANDIDATES
-            </span>
-          </div>
-
-          <p className="text-[11px] text-slate-600 font-bold uppercase">
-            REQUIRES DUAL ANALYST COMMIT FOR GRAPH PROPAGATION
-          </p>
-
-          <div className="space-y-2.5">
-            {pendingRelationships.map((rel) => {
-              const sourceEntity = entities.find((e) => e.id === rel.source_entity_id);
-              const targetEntity = entities.find((e) => e.id === rel.target_entity_id);
-
-              return (
-                <div
-                  key={rel.id}
-                  className="p-3 border-2 border-black bg-[#FBF9F5] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 shadow-brutal text-xs"
-                >
-                  <div>
-                    <div className="flex items-center space-x-2 font-black">
-                      <span className="text-[#0284C7]">{sourceEntity?.name || 'Aarav Singh'}</span>
-                      <span className="text-black">──[{rel.relationship_type}]──▶</span>
-                      <span className="text-[#D97706]">{targetEntity?.name || 'Silver Bolero'}</span>
-                    </div>
-                    <p className="text-[11px] text-slate-700 font-medium mt-1">
-                      {rel.explanation || rel.description}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center space-x-1.5 shrink-0">
-                    <button
-                      onClick={() => onDismissRelationship(rel.id)}
-                      className="px-2.5 py-1 bg-white hover:bg-slate-100 text-red-700 font-black border border-black text-[11px]"
-                    >
-                      DISMISS
-                    </button>
-                    <button
-                      onClick={() => onConfirmRelationship(rel.id)}
-                      className="px-3 py-1 bg-[#F5C842] hover:bg-[#EAB308] text-black font-black border border-black text-[11px] shadow-sm"
-                    >
-                      CONFIRM
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Right: Critical Contradiction Center (6 cols) */}
-        <div className="lg:col-span-6 bg-white border-2 border-black p-5 shadow-brutal space-y-3">
-          <div className="flex items-center justify-between border-b-2 border-black pb-2.5">
-            <div className="flex items-center space-x-2">
-              <AlertOctagon className="w-5 h-5 text-red-600" />
-              <h3 className="text-sm font-black uppercase tracking-wider text-black">
-                CRITICAL CONTRADICTION CENTER
-              </h3>
-            </div>
-            <span className="bg-[#FEE2E2] text-red-700 font-black text-[10px] px-2 py-0.5 border border-red-500">
-              ACTION MANDATORY
-            </span>
-          </div>
-
-          <p className="text-[11px] text-slate-600 font-bold uppercase">
-            CROSS-AGENCY FACT CONFLICT DETECTED
-          </p>
-
-          <div className="p-4 border-2 border-black bg-[#FEE2E2] shadow-brutal space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase text-red-800">
-                TEMPORAL TRANSIT COLLISION
-              </span>
-              <span className="text-[10px] font-bold text-slate-700">10-SEP 22:45 IST</span>
-            </div>
-            <div className="text-base font-black text-black">
-              390 KM IN 15 MINUTES = 1,560 KM/H
-            </div>
-            <p className="text-xs text-slate-800 font-sans leading-relaxed">
-              Jodhpur Witness logged Aarav Singh at Mehrangarh Clock Tower (22:30 IST). Kota SIU logged the suspect at Chambal River Bridge (22:45 IST). Requires analyst resolution.
+            <p className="text-xs text-slate-600 font-bold mt-0.5">
+              Multi-Agency Cross-Referenced Entities &amp; Real-Time Edge Hypotheses
             </p>
-            <div className="pt-2 flex items-center justify-between">
-              <span className="text-[10px] font-black text-slate-700 uppercase">
-                Probable: Body-Double Decoy / Cloned Plates
-              </span>
-              <button
-                onClick={() => onSelectTab('contradictions')}
-                className="px-3 py-1.5 bg-black text-[#F5C842] font-black text-xs border border-black shadow-sm flex items-center space-x-1"
-              >
-                <span>RESOLVE CONFLICT</span>
-                <ArrowRight className="w-3 h-3" />
-              </button>
+          </div>
+
+          <button
+            onClick={() => onSelectTab('graph')}
+            className="px-3.5 py-1.5 bg-black text-[#F5C842] hover:bg-slate-900 font-black text-xs border border-black shadow-brutal flex items-center space-x-1 self-start sm:self-auto"
+          >
+            <span>OPEN FULL GRAPH &amp; OPENSTREETMAP</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Entity Network Cards Display */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* Key Entities Badges Strip (4 cols) */}
+          <div className="lg:col-span-5 space-y-2.5">
+            <h3 className="text-xs font-black uppercase text-slate-700 tracking-wider">
+              PRIMARY CASE ENTITIES ({entities.length})
+            </h3>
+            <div className="grid grid-cols-2 gap-2">
+              {entities.map((ent) => {
+                let badgeColor = 'bg-emerald-100 text-emerald-900 border-emerald-500';
+                if (ent.type === 'vehicle') badgeColor = 'bg-amber-100 text-amber-900 border-amber-500';
+                if (ent.type === 'weapon') badgeColor = 'bg-red-100 text-red-900 border-red-500';
+                if (ent.type === 'organization') badgeColor = 'bg-purple-100 text-purple-900 border-purple-500';
+
+                return (
+                  <div
+                    key={ent.id}
+                    onClick={() => onSelectTab('graph')}
+                    className="p-2.5 border border-black bg-[#FBF9F5] hover:bg-white cursor-pointer transition shadow-xs"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 border ${badgeColor}`}>
+                        {ent.type}
+                      </span>
+                    </div>
+                    <div className="text-xs font-black text-black truncate">
+                      {ent.name}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Connected Relationships Edge Preview (7 cols) */}
+          <div className="lg:col-span-7 space-y-2.5">
+            <h3 className="text-xs font-black uppercase text-slate-700 tracking-wider">
+              VERIFIED &amp; HYPOTHESIZED GRAPH EDGES
+            </h3>
+            <div className="space-y-2">
+              {relationships.slice(0, 4).map((rel) => {
+                const source = entities.find((e) => e.id === rel.source_entity_id);
+                const target = entities.find((e) => e.id === rel.target_entity_id);
+                const isConfirmed = rel.status === 'confirmed';
+
+                return (
+                  <div
+                    key={rel.id}
+                    className="p-2.5 border border-black bg-[#FBF9F5] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs"
+                  >
+                    <div className="flex items-center space-x-2 font-black flex-wrap">
+                      <span className="text-blue-700">{source?.name || 'Aarav Singh'}</span>
+                      <span className="text-black font-bold">──[{rel.relationship_type}]──▶</span>
+                      <span className="text-amber-700 truncate max-w-[180px]">{target?.name || 'Bolero'}</span>
+                    </div>
+
+                    <div className="flex items-center space-x-2 shrink-0">
+                      <span
+                        className={`text-[10px] font-black px-2 py-0.5 border ${
+                          isConfirmed
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-600'
+                            : 'bg-amber-100 text-amber-800 border-amber-600'
+                        }`}
+                      >
+                        {isConfirmed ? 'CONFIRMED' : 'AI SUGGESTED'}
+                      </span>
+                      <button
+                        onClick={() => onSelectTab('graph')}
+                        className="p-1 border border-black bg-white hover:bg-slate-100"
+                      >
+                        <ChevronRight className="w-3 h-3 text-black" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* ─────────────────────────────────────────────────────────────
+          SECTION 4: EVIDENCE LIST (Multi-Modal Vault Assets)
+      ───────────────────────────────────────────────────────────── */}
+      <section className="bg-white border-2 border-black p-5 shadow-brutal space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b-2 border-black pb-3">
+          <div>
+            <div className="flex items-center space-x-2">
+              <FolderArchive className="w-5 h-5 text-black" />
+              <h2 className="text-base font-black uppercase tracking-wider text-black">
+                EVIDENCE VAULT ASSETS ({documents.length})
+              </h2>
+            </div>
+            <p className="text-xs text-slate-600 font-bold mt-0.5">
+              Verified Multi-Modal Intel with FIPS-Compliant Cryptographic Hash Locks
+            </p>
+          </div>
+
+          <button
+            onClick={() => onSelectTab('vault')}
+            className="px-3.5 py-1.5 bg-[#F5C842] hover:bg-[#EAB308] text-black font-black text-xs border border-black shadow-brutal flex items-center space-x-1 self-start sm:self-auto"
+          >
+            <span>BROWSE COMPLETE VAULT</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Evidence List Grid */}
+        <div className="space-y-2.5">
+          {documents.map((doc, idx) => (
+            <div
+              key={doc.id}
+              className="p-3.5 border-2 border-black bg-[#FBF9F5] flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs hover:bg-white transition"
+            >
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-2 py-0.5 bg-black text-[#F5C842] text-[10px] font-black uppercase border border-black">
+                    {doc.file_type}
+                  </span>
+                  <h3 className="text-xs font-black text-black">
+                    {doc.title}
+                  </h3>
+                  <span className="text-[10px] font-bold text-slate-600 bg-white px-2 py-0.5 border border-slate-300">
+                    BY: {doc.uploaded_by || 'Field Investigator'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-700 font-sans line-clamp-1">
+                  {doc.content_text?.slice(0, 140)}…
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-2 shrink-0 self-end md:self-center">
+                <span className="text-[10px] font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 border border-emerald-500">
+                  LOCKED SHA-256
+                </span>
+                <button
+                  onClick={() => onOpenProvenance(doc.id, '00:00:00', doc.content_text?.slice(0, 80))}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-100 text-black border border-black font-black text-xs flex items-center space-x-1"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  <span>INSPECT</span>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─────────────────────────────────────────────────────────────
+          SECTION 5: EVIDENCE AUTHORS (Depositing Officers & Units)
+      ───────────────────────────────────────────────────────────── */}
+      <section className="bg-white border-2 border-black p-5 shadow-brutal space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b-2 border-black pb-3">
+          <div>
+            <div className="flex items-center space-x-2">
+              <UserCheck className="w-5 h-5 text-black" />
+              <h2 className="text-base font-black uppercase tracking-wider text-black">
+                EVIDENCE AUTHORS &amp; INVESTIGATIVE UNITS
+              </h2>
+            </div>
+            <p className="text-xs text-slate-600 font-bold mt-0.5">
+              Verified Law Enforcement Officers &amp; Technical Stations Depositing Intel
+            </p>
+          </div>
+
+          <button
+            onClick={() => onSelectTab('authors')}
+            className="px-3.5 py-1.5 bg-black text-[#F5C842] hover:bg-slate-900 font-black text-xs border border-black shadow-brutal flex items-center space-x-1 self-start sm:self-auto"
+          >
+            <span>VIEW COMPLETE AUTHORS DIRECTORY</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* 4 Authors Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {authors.map((author) => (
+            <div
+              key={author.badge}
+              onClick={() => onSelectTab('authors')}
+              className="p-4 border-2 border-black bg-[#FBF9F5] hover:bg-white cursor-pointer transition shadow-xs flex flex-col justify-between space-y-3"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-8 h-8 border border-black bg-white flex items-center justify-center text-lg">
+                    {author.icon}
+                  </div>
+                  <span className="text-[10px] font-black px-1.5 py-0.5 bg-black text-white">
+                    {author.badge}
+                  </span>
+                </div>
+
+                <h3 className="text-xs font-black uppercase text-black leading-snug">
+                  {author.name}
+                </h3>
+                <p className="text-[11px] font-bold text-slate-600 mt-0.5">
+                  {author.unit}
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-slate-300 flex items-center justify-between text-[10px] font-bold">
+                <span className="text-slate-700">
+                  {author.filesCount} {author.filesCount === 1 ? 'FILE' : 'FILES'} FILED
+                </span>
+                <span className="text-blue-700 font-black flex items-center space-x-0.5">
+                  <span>DOSSIER</span>
+                  <ChevronRight className="w-3 h-3" />
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 };

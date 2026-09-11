@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   X,
   Zap,
+  Lock
 } from 'lucide-react';
 
 interface EvidenceDropzoneProps {
@@ -26,6 +27,8 @@ export function EvidenceDropzone({ onClose, defaultAgencySlug = 'jodhpur' }: Evi
   const [title, setTitle] = useState('');
   const [contentText, setContentText] = useState('');
   const [fileType, setFileType] = useState<'text' | 'audio' | 'image' | 'video'>('text');
+
+  const [author, setAuthor] = useState('');
 
   // React Dropzone file drop handler
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -67,110 +70,149 @@ export function EvidenceDropzone({ onClose, defaultAgencySlug = 'jodhpur' }: Evi
       content_text: contentText,
       agency_slug: selectedAgency,
       file_type: fileType,
+      uploaded_by: author.trim() || undefined,
     });
 
     if (onClose) onClose();
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-700 rounded-xl p-5 shadow-2xl max-w-xl w-full text-slate-100 font-sans space-y-4">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-        <div className="flex items-center gap-2">
-          <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-400">
+    <div className="w-full bg-white p-6 text-black font-mono space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b-2 border-black pb-3">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-8 h-8 bg-black text-[#F5C842] flex items-center justify-center font-black border border-black shadow-sm">
             <UploadCloud className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-slate-100">Ingest Multi-Modal Evidence Vault</h3>
-            <p className="text-xs text-slate-400">Text, CCTV Images, Audio Wiretaps, or Dashcam Video</p>
+            <h3 className="text-sm font-black uppercase tracking-wider text-black">
+              INGEST MULTI-MODAL EVIDENCE VAULT
+            </h3>
+            <p className="text-[11px] text-slate-700 font-bold">
+              Text Statements, CCTV Video/Stills, Audio Wiretaps, or Forensics
+            </p>
           </div>
         </div>
         {onClose && (
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-200">
-            <X className="w-5 h-5" />
+          <button
+            onClick={onClose}
+            className="p-1 border border-black hover:bg-slate-100 text-black transition"
+          >
+            <X className="w-4 h-4" />
           </button>
         )}
       </div>
 
-      {/* Manual File Dropzone Area */}
+      {/* Manual File Dropzone Area (Clean light border) */}
       <div
         {...getRootProps()}
-        className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all ${
+        className={`border-2 border-dashed border-black rounded-none p-6 text-center cursor-pointer transition-all ${
           isDragActive
-            ? 'border-cyan-400 bg-cyan-950/20'
-            : 'border-slate-700 hover:border-slate-500 bg-slate-950/50'
+            ? 'bg-yellow-50 border-[#F5C842]'
+            : 'bg-[#FBF9F5] hover:bg-white'
         }`}
       >
         <input {...getInputProps()} />
-        <UploadCloud className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-        <p className="text-xs text-slate-300 font-medium">
-          Drag & drop evidence file here, or <span className="text-cyan-400 font-bold">browse</span>
+        <UploadCloud className="w-8 h-8 text-black mx-auto mb-2" />
+        <p className="text-xs text-black font-black uppercase">
+          Drag &amp; drop evidence file here, or <span className="underline text-blue-700">browse</span>
         </p>
-        <p className="text-[11px] text-slate-500 mt-1">
+        <p className="text-[10px] text-slate-600 font-bold mt-1">
           Supports .txt, .pdf, .mp3, .wav, .jpg, .png, .mp4 (up to 50MB)
         </p>
       </div>
 
       {/* Upload Details Form */}
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-3.5">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-mono text-slate-400 mb-1">Source Agency:</label>
+            <label className="block text-[11px] font-black uppercase text-slate-800 mb-1">
+              Source Agency:
+            </label>
             <select
               value={selectedAgency}
               onChange={(e) => setSelectedAgency(e.target.value as any)}
-              className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 outline-none"
+              className="w-full bg-[#FBF9F5] border-2 border-black text-xs font-bold text-black p-2 outline-none focus:bg-white"
             >
               <option value="jodhpur">Jodhpur Police (Commissionerate)</option>
-              <option value="kota">Kota Police (Crime Branch)</option>
+              <option value="kota">Kota Police (Special Intelligence Unit)</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-xs font-mono text-slate-400 mb-1">File Classification:</label>
+            <label className="block text-[11px] font-black uppercase text-slate-800 mb-1">
+              File Classification:
+            </label>
             <select
               value={fileType}
               onChange={(e) => setFileType(e.target.value as any)}
-              className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 outline-none"
+              className="w-full bg-[#FBF9F5] border-2 border-black text-xs font-bold text-black p-2 outline-none focus:bg-white"
             >
               <option value="text">Text Statement / FIR Memo</option>
-              <option value="audio">Audio Wiretap / Intercept</option>
-              <option value="image">CCTV / ANPR Still Frame</option>
-              <option value="video">Surveillance Video Stream</option>
+              <option value="audio">Audio Wiretap / Intercept (.mp3/.wav)</option>
+              <option value="image">CCTV NightVision / Optical Frame</option>
+              <option value="video">Surveillance Video (.mp4)</option>
             </select>
           </div>
         </div>
 
-        <div>
-          <label className="block text-xs font-mono text-slate-400 mb-1">Evidence Title:</label>
-          <input
-            type="text"
-            required
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Mandore CCTV Camera 2 Footage Extract"
-            className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-cyan-500 font-mono"
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-[11px] font-black uppercase text-slate-800 mb-1">
+              Author / Depositing Officer:
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Inspector Rajiv Rathore (Jodhpur PD)"
+              value={author}
+              onChange={(e) => setAuthor(e.target.value)}
+              className="w-full bg-[#FBF9F5] border-2 border-black text-xs font-bold text-black p-2 outline-none focus:bg-white font-sans"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-black uppercase text-slate-800 mb-1">
+              Evidence Title:
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Mandore CCTV Camera 2 Footage Extract"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full bg-[#FBF9F5] border-2 border-black text-xs font-bold text-black p-2 outline-none focus:bg-white font-sans"
+              required
+            />
+          </div>
         </div>
 
         <div>
-          <label className="block text-xs font-mono text-slate-400 mb-1">
+          <label className="block text-[11px] font-black uppercase text-slate-800 mb-1">
             Forensic Text Content / Transcript / Optical Notes:
           </label>
           <textarea
             rows={4}
+            placeholder="Paste text statement, timestamped transcript, or visual observation log..."
             value={contentText}
             onChange={(e) => setContentText(e.target.value)}
-            placeholder="Paste text statement, timestamped transcript, or visual observation log..."
-            className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-cyan-500 font-mono"
+            className="w-full bg-[#FBF9F5] border-2 border-black text-xs font-medium text-black p-2.5 outline-none focus:bg-white font-sans resize-none"
           />
         </div>
 
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+        {/* Live Processing Notice */}
+        {isProcessing && (
+          <div className="p-2.5 bg-yellow-100 border-2 border-black text-xs font-black flex items-center space-x-2">
+            <span className="w-2 h-2 rounded-full bg-[#F5C842] animate-ping" />
+            <span>{processingStatusText || 'Extracting Named Entities and Diarization...'}</span>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-200">
           {onClose && (
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded transition"
+              className="px-4 py-2 bg-white hover:bg-slate-100 text-black font-bold text-xs border-2 border-black transition"
             >
               Cancel
             </button>
@@ -179,10 +221,10 @@ export function EvidenceDropzone({ onClose, defaultAgencySlug = 'jodhpur' }: Evi
           <button
             type="submit"
             disabled={isProcessing || !title.trim()}
-            className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold rounded flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 transition"
+            className="px-5 py-2 bg-[#F5C842] hover:bg-[#EAB308] disabled:opacity-50 text-black font-black text-xs border-2 border-black shadow-brutal flex items-center space-x-1.5 transition active:translate-x-0.5 active:translate-y-0.5"
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{isProcessing ? 'Processing AI Pipeline...' : 'Ingest & Extract Intelligence'}</span>
+            <Sparkles className="w-4 h-4 text-black" />
+            <span>{isProcessing ? 'Ingesting...' : 'Ingest & Extract Intelligence'}</span>
           </button>
         </div>
       </form>

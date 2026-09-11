@@ -21,6 +21,7 @@ interface NexusHeaderProps {
   onSelectAgency: (agency: 'all' | 'jodhpur' | 'kota') => void;
   onOpenUpload: () => void;
   onResetCase: () => void;
+  onSelectTab?: (tab: NexusNavTab) => void;
   isProcessing: boolean;
   processingText: string;
 }
@@ -31,6 +32,7 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
   onSelectAgency,
   onOpenUpload,
   onResetCase,
+  onSelectTab,
   isProcessing,
   processingText
 }) => {
@@ -40,6 +42,7 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
     { id: 'graph', label: 'ENTITY GRAPH' },
     { id: 'contradictions', label: 'CONTRADICTION CENTER' },
     { id: 'timeline', label: 'TIMELINE & GEO' },
+    { id: 'authors', label: 'AUTHORS' },
     { id: 'dossier', label: 'DOSSIER & PROVENANCE' },
   ];
 
@@ -87,14 +90,16 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
           {tabs.map((t) => {
             const isActive = currentTab === t.id;
             return (
-              <a
+              <button
                 key={t.id}
-                href={`#${t.id}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  // Handled via parent tab selection
-                  const btn = document.getElementById(`sidebar-btn-${t.id}`);
-                  if (btn) btn.click();
+                type="button"
+                onClick={() => {
+                  if (onSelectTab) {
+                    onSelectTab(t.id);
+                  } else {
+                    const btn = document.getElementById(`sidebar-btn-${t.id}`);
+                    if (btn) btn.click();
+                  }
                 }}
                 className={`px-3 py-1.5 text-xs font-black transition-all border ${
                   isActive
@@ -103,7 +108,7 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
                 }`}
               >
                 {t.label}
-              </a>
+              </button>
             );
           })}
         </nav>
