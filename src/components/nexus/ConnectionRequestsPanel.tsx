@@ -91,13 +91,17 @@ function ConnectionRequestsPanelInner({
               <Link2 className="w-4 h-4 text-black" />
             </div>
             <div>
-              <h2 className="text-sm font-black uppercase tracking-widest">CONNECTION REQUESTS</h2>
+              <h2 className="text-sm font-black uppercase tracking-widest">
+                {currentPortalAgency === 'jodhpur'
+                  ? 'INCOMING EVIDENCE & REQUESTS'
+                  : 'CASE ACCESS & EVIDENCE TRANSMISSIONS'}
+              </h2>
               <p className="text-[10px] text-slate-400 font-bold">
-                Cross-agency case access control — {AGENCY_LABELS[currentPortalAgency]}
+                Cross-agency evidence & case collaboration — {AGENCY_LABELS[currentPortalAgency]}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-white/10 transition">
+          <button onClick={onClose} className="p-1.5 hover:bg-white/10 transition cursor-pointer">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -106,68 +110,77 @@ function ConnectionRequestsPanelInner({
           {/* ── Incoming ── */}
           <section>
             <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 border-b border-black pb-2 mb-3">
-              INCOMING REQUESTS ({incoming.length})
+              {currentPortalAgency === 'jodhpur'
+                ? `INCOMING EVIDENCE TRANSMISSIONS (${incoming.length})`
+                : `INCOMING REQUESTS (${incoming.length})`}
             </h3>
             {incoming.length === 0 ? (
               <p className="text-xs text-slate-500 font-bold font-sans">
-                No incoming connection requests for this portal.
+                {currentPortalAgency === 'jodhpur'
+                  ? 'No incoming evidence transmissions for this portal yet.'
+                  : 'No incoming connection requests for this portal.'}
               </p>
             ) : (
               <div className="space-y-3">
-                {incoming.map((req) => (
-                  <div
-                    key={req.id}
-                    className={`border-2 border-black p-4 space-y-3 ${
-                      req.status === 'pending' ? 'bg-amber-50' : 'bg-[#FBF9F5]'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span
-                            className="text-[10px] font-black px-1.5 py-0.5 text-white uppercase"
-                            style={{ backgroundColor: AGENCY_COLORS[req.requesting_agency_slug] }}
-                          >
-                            {req.requesting_agency_slug.toUpperCase()}
-                          </span>
-                          <span className="text-xs font-black text-black">
-                            {AGENCY_LABELS[req.requesting_agency_slug]}
-                          </span>
+                {incoming.map((req) => {
+                  const isFromKota = req.requesting_agency_slug === 'kota';
+                  return (
+                    <div
+                      key={req.id}
+                      className={`border-2 border-black p-4 space-y-3 ${
+                        req.status === 'pending' ? 'bg-amber-50' : 'bg-[#FBF9F5]'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span
+                              className="text-[10px] font-black px-1.5 py-0.5 text-white uppercase"
+                              style={{ backgroundColor: AGENCY_COLORS[req.requesting_agency_slug] }}
+                            >
+                              {isFromKota ? 'EVIDENCE TRANSMISSION' : req.requesting_agency_slug.toUpperCase()}
+                            </span>
+                            <span className="text-xs font-black text-black">
+                              {AGENCY_LABELS[req.requesting_agency_slug]}
+                            </span>
+                          </div>
+                          <p className="text-xs font-black text-black">{req.case_name}</p>
+                          <p className="text-[10px] text-slate-500 font-bold">
+                            Received: {new Date(req.created_at).toLocaleString('en-IN')}
+                          </p>
                         </div>
-                        <p className="text-xs font-black text-black">{req.case_name}</p>
-                        <p className="text-[10px] text-slate-500 font-bold">
-                          Received: {new Date(req.created_at).toLocaleString('en-IN')}
-                        </p>
+                        {statusBadge(req.status)}
                       </div>
-                      {statusBadge(req.status)}
-                    </div>
 
-                    {/* Brief snapshot */}
-                    <div className="bg-white border border-slate-300 p-3 text-xs text-slate-700 font-sans leading-relaxed whitespace-pre-wrap max-h-28 overflow-y-auto">
-                      {req.case_brief_snapshot}
-                    </div>
-
-                    {/* Accept / Reject actions (only for pending) */}
-                    {req.status === 'pending' && (
-                      <div className="flex gap-2 pt-1">
-                        <button
-                          onClick={() => handleRespond(req.id, 'accepted')}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs border-2 border-emerald-700 shadow-brutal transition active:translate-x-0.5 active:translate-y-0.5"
-                        >
-                          <Check className="w-4 h-4" />
-                          ACCEPT — Grant Joint Access
-                        </button>
-                        <button
-                          onClick={() => handleRespond(req.id, 'rejected')}
-                          className="flex items-center justify-center gap-1.5 px-4 py-2 bg-white hover:bg-red-50 text-red-700 font-black text-xs border-2 border-red-500 transition"
-                        >
-                          <XCircle className="w-4 h-4" />
-                          REJECT
-                        </button>
+                      {/* Brief snapshot */}
+                      <div className="bg-white border border-slate-300 p-3 text-xs text-slate-700 font-sans leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto">
+                        {req.case_brief_snapshot}
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {/* Accept / Reject actions (only for pending) */}
+                      {req.status === 'pending' && (
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            onClick={() => handleRespond(req.id, 'accepted')}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs border-2 border-emerald-700 shadow-brutal transition active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                          >
+                            <Check className="w-4 h-4" />
+                            {isFromKota
+                              ? 'ACCEPT EVIDENCE — Merge into Case'
+                              : 'ACCEPT BRIEF — Join Investigation'}
+                          </button>
+                          <button
+                            onClick={() => handleRespond(req.id, 'rejected')}
+                            className="flex items-center justify-center gap-1.5 px-4 py-2 bg-white hover:bg-red-50 text-red-700 font-black text-xs border-2 border-red-500 transition cursor-pointer"
+                          >
+                            <XCircle className="w-4 h-4" />
+                            REJECT
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>
@@ -175,11 +188,15 @@ function ConnectionRequestsPanelInner({
           {/* ── Outgoing ── */}
           <section>
             <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 border-b border-black pb-2 mb-3">
-              SENT REQUESTS ({outgoing.length})
+              {currentPortalAgency === 'kota'
+                ? `TRANSMITTED EVIDENCE REPORTS (${outgoing.length})`
+                : `SENT CASE REQUESTS (${outgoing.length})`}
             </h3>
             {outgoing.length === 0 ? (
               <p className="text-xs text-slate-500 font-bold font-sans">
-                No connection requests sent from this portal yet.
+                {currentPortalAgency === 'kota'
+                  ? 'No evidence transmissions sent from this portal yet.'
+                  : 'No connection requests sent from this portal yet.'}
               </p>
             ) : (
               <div className="space-y-3">
@@ -191,7 +208,9 @@ function ConnectionRequestsPanelInner({
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-black text-slate-600">→ TO:</span>
+                          <span className="text-[10px] font-black text-slate-600">
+                            {req.requesting_agency_slug === 'kota' ? 'TRANSMITTED EVIDENCE → TO:' : 'SENT CASE BRIEF → TO:'}
+                          </span>
                           <span
                             className="text-[10px] font-black px-1.5 py-0.5 text-white uppercase"
                             style={{ backgroundColor: AGENCY_COLORS[req.target_agency_slug] }}

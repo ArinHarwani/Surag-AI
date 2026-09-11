@@ -186,7 +186,9 @@ export const NexusSidebar: React.FC<NexusSidebarProps> = ({
               style={{ color: stats.pendingRequestsCount > 0 ? '#D97706' : '#475569' }}
             />
             <span className={stats.pendingRequestsCount > 0 ? 'text-amber-800' : 'text-slate-800'}>
-              INCOMING REQUESTS
+              {scopedAgency === 'jodhpur'
+                ? (stats.pendingRequestsCount > 0 ? 'INCOMING EVIDENCE' : 'INCOMING EVIDENCE / REQS')
+                : 'INCOMING REQUESTS'}
             </span>
           </div>
           {stats.pendingRequestsCount > 0 && (

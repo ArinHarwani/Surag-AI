@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronDown,
   MapPin,
+  Send,
 } from 'lucide-react';
 import { NexusNavTab } from './NexusSidebar';
 import { AgencySlug } from '@/types/investigation';
@@ -100,8 +101,20 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
 
-  // Dynamic reporting cities: remove current agency so Kota reports to Jodhpur, and Jodhpur reports to Kota
-  const availableCities = ALL_REPORTING_CITIES.filter((c) => c.slug !== scopedAgency);
+  const isKota = scopedAgency === 'kota';
+
+  // Dynamic reporting cities: remove current agency and customize role labels
+  const availableCities = ALL_REPORTING_CITIES
+    .filter((c) => c.slug !== scopedAgency)
+    .map((c) => {
+      if (isKota && c.slug === 'jodhpur') {
+        return { ...c, sublabel: 'Jodhpur Police HQ (Transmit Evidence)' };
+      }
+      if (!isKota && c.slug === 'kota') {
+        return { ...c, sublabel: 'Kota Police CID (Send Case Brief)' };
+      }
+      return c;
+    });
 
   return (
     <header className="bg-[#EFECE6] border-b-2 border-black text-black px-5 py-3 sticky top-0 z-30 select-none font-mono w-full shadow-xs shrink-0">
@@ -162,15 +175,23 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
             <div className="relative">
               <button
                 onClick={() => setCityDropdownOpen((o) => !o)}
-                title="Select city to report / connect to"
+                title={isKota ? "Select agency to transmit evidence to" : "Select city to report / connect to"}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 border-2 border-black shadow-brutal text-xs font-black transition active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
               >
-                <MapPin className="w-3.5 h-3.5 text-slate-700" />
-                <span>{selectedCity ? `REPORT TO: ${selectedCity}` : 'REPORT / CONNECT TO'}</span>
+                {isKota ? (
+                  <Send className="w-3.5 h-3.5 text-slate-700" />
+                ) : (
+                  <MapPin className="w-3.5 h-3.5 text-slate-700" />
+                )}
+                <span>
+                  {selectedCity
+                    ? (isKota ? `TRANSMIT EVIDENCE: ${selectedCity}` : `REPORT TO: ${selectedCity}`)
+                    : (isKota ? 'TRANSMIT EVIDENCE TO' : 'REPORT / CONNECT TO')}
+                </span>
                 <ChevronDown className={`w-3 h-3 transition-transform ${cityDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
               {cityDropdownOpen && (
-                <div className="absolute right-0 top-full mt-1 w-56 bg-white border-2 border-black shadow-brutal z-50">
+                <div className="absolute right-0 top-full mt-1 w-64 bg-white border-2 border-black shadow-brutal z-50">
                   {availableCities.map((city) => (
                     <button
                       key={city.label}
