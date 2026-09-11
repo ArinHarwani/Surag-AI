@@ -367,10 +367,10 @@ function runLocalDetectiveExtraction(doc: Document, existingEntities: Entity[], 
         source_offset: offset,
         confidence: 0.99,
       });
-    } else if (/swings|Gate\s+2|4:15|disappeared|missing|park's\s+Gate/i.test(trimmed)) {
+    } else if (/swings|4:15\s*pm|disappeared|missing\s+child/i.test(trimmed)) {
       events.push({
         description: 'Aarav Singh reported missing near City Park Gate 2 swings',
-        event_timestamp: '2026-03-14T16:15:00.000Z',
+        event_timestamp: `${refYear}-03-14T16:15:00.000Z`,
         event_timestamp_confidence: 'exact',
         location_text: 'City Park Gate 2, Shastri Nagar, Jodhpur',
         lat: 26.28,
@@ -378,10 +378,10 @@ function runLocalDetectiveExtraction(doc: Document, existingEntities: Entity[], 
         source_offset: offset,
         confidence: 0.98,
       });
-    } else if (/grey\s+hatchback|4:20|4:25|get\s+into\s+a\s+grey|RJ\s*19/i.test(trimmed)) {
+    } else if (/grey\s+hatchback|4:20.*4:25|get\s+into\s+a\s+grey|RJ\s*19/i.test(trimmed)) {
       events.push({
         description: 'Boy in blue t-shirt witnessed boarding grey hatchback RJ 19 heading toward highway',
-        event_timestamp: '2026-03-14T16:22:00.000Z',
+        event_timestamp: `${refYear}-03-14T16:22:00.000Z`,
         event_timestamp_confidence: 'exact',
         location_text: 'City Park Gate 2, Shastri Nagar, Jodhpur',
         lat: 26.28,
@@ -389,10 +389,10 @@ function runLocalDetectiveExtraction(doc: Document, existingEntities: Entity[], 
         source_offset: offset,
         confidence: 0.96,
       });
-    } else if (/school\s+van|4:45|boarding\s+the\s+school/i.test(trimmed)) {
+    } else if (/school\s+van|4:45/i.test(trimmed)) {
       events.push({
         description: 'Witness Sunita Devi claims seeing Aarav boarding school van outside residence',
-        event_timestamp: '2026-03-14T16:45:00.000Z',
+        event_timestamp: `${refYear}-03-14T16:45:00.000Z`,
         event_timestamp_confidence: 'exact',
         location_text: 'Singh Residence Neighborhood, Shastri Nagar, Jodhpur',
         lat: 26.282,
@@ -526,7 +526,13 @@ function runLocalDetectiveExtraction(doc: Document, existingEntities: Entity[], 
     });
   }
 
-  return { entities, events, suggestedRelationships: relationships };
+  // Deduplicate events by description and location to prevent multiple lines
+  // in the same document from spawning identical events.
+  const uniqueEvents = Array.from(
+    new Map(events.map((e) => [`${e.description}|${e.location_text}`, e])).values()
+  );
+
+  return { entities, events: uniqueEvents, suggestedRelationships: relationships };
 }
 
 /**

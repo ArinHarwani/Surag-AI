@@ -493,7 +493,11 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
             first_seen_at: new Date().toISOString(),
           }));
 
-        const allEntities = [...baseEntities, ...newEntityRecords];
+        const allEntities = Array.from(
+          new Map(
+            [...baseEntities, ...newEntityRecords].map((e) => [e.id, e])
+          ).values()
+        );
 
         const newEventRecords: Event[] = extraction.events.map((raw, idx) => {
           // Bug Fix #2: Use a DETERMINISTIC ID keyed on case+doc+description+timestamp
@@ -524,11 +528,15 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
           };
         });
 
-        // Only accumulate events that belong to the current case
-        const allEvents = [
-          ...baseEvents.filter((e) => e.case_id === caseId),
-          ...newEventRecords,
-        ];
+        // Only accumulate events that belong to the current case, deduplicated by ID
+        const allEvents = Array.from(
+          new Map(
+            [
+              ...baseEvents.filter((e) => e.case_id === caseId),
+              ...newEventRecords,
+            ].map((e) => [e.id, e])
+          ).values()
+        );
 
         const newRelationshipRecords: Relationship[] = extraction.suggestedRelationships.map(
           (raw, idx) => {
@@ -555,7 +563,11 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
           }
         );
 
-        const allRelationships = [...baseRelationships, ...newRelationshipRecords];
+        const allRelationships = Array.from(
+          new Map(
+            [...baseRelationships, ...newRelationshipRecords].map((r) => [r.id, r])
+          ).values()
+        );
 
         // Contradiction detection: only run against events scoped to this case
         const candidateContradictions = findCandidateContradictions(
@@ -574,12 +586,11 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
           created_at: new Date().toISOString(),
         }));
 
-        const allContradictions = [
-          ...baseContradictions,
-          ...newContradictionRecords.filter(
-            (nc) => !baseContradictions.some((pc) => pc.id === nc.id)
-          ),
-        ];
+        const allContradictions = Array.from(
+          new Map(
+            [...baseContradictions, ...newContradictionRecords].map((c) => [c.id, c])
+          ).values()
+        );
 
         const finalDocs = prev.documents.map((d) =>
           d.id === docId ? { ...d, status: 'processed' as const } : d
