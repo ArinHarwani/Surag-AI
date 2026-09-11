@@ -6,7 +6,7 @@ import { formatDateIST, formatTimeIST } from './formatDate';
  */
 export function formatEvidenceTitleFromFile(
   fileName: string,
-  type: 'image' | 'audio' | 'video' | 'text'
+  type: 'image' | 'audio' | 'video' | 'text' | 'pdf'
 ): string {
   if (!fileName) return 'Forensic Evidence Exhibit';
 
@@ -31,6 +31,25 @@ export function formatEvidenceTitleFromFile(
 
   const formattedName = words.join(' ');
   const lower = fileName.toLowerCase();
+
+  if (type === 'pdf') {
+    if (/fir|police|complaint|cognizance/i.test(lower)) {
+      return `FIR Record: ${formattedName}`;
+    }
+    if (/autopsy|post-mortem|forensic|ballistic|lab|dna/i.test(lower)) {
+      return `Forensic Lab Report: ${formattedName}`;
+    }
+    if (/statement|witness|interrogation|confession/i.test(lower)) {
+      return `Witness Statement: ${formattedName}`;
+    }
+    if (/call|cdr|cell|tower|intercept/i.test(lower)) {
+      return `Call Data Record (CDR): ${formattedName}`;
+    }
+    if (/charge|sheet|court|warrant|order/i.test(lower)) {
+      return `Judicial Order / Chargesheet: ${formattedName}`;
+    }
+    return `Case Document: ${formattedName}`;
+  }
 
   if (type === 'image') {
     if (/cctv|toll|camera|traffic|naka|checkpost/i.test(lower)) {
@@ -57,6 +76,36 @@ export function formatEvidenceTitleFromFile(
   }
 
   return formattedName || 'Forensic Dossier';
+}
+
+/**
+ * Generates structured forensic telemetry for an uploaded PDF document,
+ * including page count, document classification, and extracted text.
+ */
+export function generatePdfTelemetry(
+  file: { name: string; size: number },
+  totalPages: number,
+  extractedText: string,
+  agencyName?: string
+): string {
+  const sizeKb = (file.size / 1024).toFixed(1);
+  const now = new Date();
+  const dateStr = formatDateIST(now);
+  const timeStr = formatTimeIST(now);
+
+  const cleanText = extractedText.trim();
+
+  return [
+    `[DOCUMENTARY EVIDENCE EXHIBIT // PDF DOSSIER]`,
+    `Source File: ${file.name}`,
+    `Classification: Official Law Enforcement Case Document`,
+    `Pages: ${totalPages} Page(s) | File Size: ${sizeKb} KB`,
+    `Ingest Timestamp: ${dateStr} at ${timeStr}`,
+    `Depositing Agency: ${agencyName ? agencyName.toUpperCase() : 'INVESTIGATION DIVISION'}`,
+    ``,
+    `--- EXTRACTED PDF TEXT RECORD ---`,
+    cleanText || '[No embedded text detected in PDF document. Visual OCR notes can be entered below.]',
+  ].join('\n');
 }
 
 /**

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useInvestigation } from '@/lib/store/investigation-context';
 import { AgencySlug } from '@/types/investigation';
-import { Link2, X, Check, XCircle, Clock, Volume2 } from 'lucide-react';
+import { Link2, X, Check, XCircle, Clock, Volume2, FileText } from 'lucide-react';
 
 interface ConnectionRequestsPanelProps {
   onClose: () => void;
@@ -181,6 +181,50 @@ function ConnectionRequestsPanelInner({
                               </span>
                             </div>
                             <audio controls className="w-full h-8" src={audioUrl} />
+                          </div>
+                        );
+                      })()}
+
+                      {/* PDF Viewer if PDF evidence was transmitted */}
+                      {(() => {
+                        const relatedPdfDoc = documents.find(
+                          (d) =>
+                            d.file_type === 'pdf' &&
+                            (d.agency_id === agencies[req.requesting_agency_slug]?.id ||
+                              d.uploaded_by?.toLowerCase().includes('kota'))
+                        );
+                        const pdfUrl = req.media_url?.startsWith('data:application/pdf')
+                          ? req.media_url
+                          : relatedPdfDoc?.media_url?.startsWith('data:application/pdf')
+                          ? relatedPdfDoc.media_url
+                          : null;
+
+                        const hasPdfText = req.case_brief_snapshot?.includes('[DOCUMENTARY EVIDENCE EXHIBIT // PDF DOSSIER]');
+
+                        if (!pdfUrl && !hasPdfText) return null;
+
+                        return (
+                          <div className="border-2 border-black bg-neutral-900 p-3 space-y-2 text-white shadow-brutal font-mono">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-black uppercase text-[#F5C842] flex items-center gap-1.5">
+                                <FileText className="w-4 h-4 text-red-400 shrink-0" />
+                                TRANSMITTED PDF EXHIBIT // OFFICIAL DOSSIER
+                              </span>
+                              {pdfUrl && (
+                                <a
+                                  href={pdfUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  download="transmitted_case_dossier.pdf"
+                                  className="text-[9px] font-black bg-[#F5C842] text-black px-2.5 py-0.5 uppercase tracking-wider hover:bg-yellow-400"
+                                >
+                                  VIEW / DOWNLOAD PDF ↗
+                                </a>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-slate-300">
+                              Full textual content parsed &amp; ready for contradiction analysis.
+                            </p>
                           </div>
                         );
                       })()}

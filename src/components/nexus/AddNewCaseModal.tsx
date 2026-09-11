@@ -16,7 +16,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { AgencySlug } from '@/types/investigation';
-import { formatEvidenceTitleFromFile, generateOpticalTelemetry } from '@/lib/utils/evidenceFormatter';
+import { formatEvidenceTitleFromFile, generateOpticalTelemetry, generatePdfTelemetry } from '@/lib/utils/evidenceFormatter';
 
 interface AddNewCaseModalProps {
   onClose: () => void;
@@ -44,7 +44,7 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
   // Evidence-level fields (optional first evidence piece)
   const [evidenceTitle, setEvidenceTitle] = useState('');
   const [contentText, setContentText] = useState('');
-  const [fileType, setFileType] = useState<'text' | 'audio' | 'image' | 'video'>('text');
+  const [fileType, setFileType] = useState<'text' | 'audio' | 'image' | 'video' | 'pdf'>('text');
   const [author, setAuthor] = useState('');
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -190,9 +190,63 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
       return;
     }
 
+    const isPdf =
+      fileType === 'pdf' ||
+      file.type === 'application/pdf' ||
+      /\.pdf$/i.test(file.name);
+
+    if (isPdf) {
+      setFileType('pdf');
+      const dynamicTitle = formatEvidenceTitleFromFile(file.name, 'pdf');
+      setEvidenceTitle(dynamicTitle);
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setMediaUrl(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+
+      setIsTranscribing(true);
+      setTranscribeStatus('📄 Reading & extracting text from PDF document...');
+      setContentText(`[Ingesting PDF Document: ${file.name} (${(file.size / 1024).toFixed(1)} KB)... extracting text]`);
+
+      try {
+        const pdfFormData = new FormData();
+        pdfFormData.append('file', file);
+        const res = await fetch('/api/ai/pdf', {
+          method: 'POST',
+          body: pdfFormData,
+        });
+
+        if (res.ok) {
+          const pdfData = await res.json();
+          if (pdfData.has_text && pdfData.text?.trim()) {
+            const telemetry = generatePdfTelemetry(file, pdfData.total_pages || 1, pdfData.text, filingAgency);
+            setContentText(telemetry);
+            setTranscribeStatus(`✅ PDF Extracted (${pdfData.total_pages || 1} page(s) · ${pdfData.text.split(/\s+/).filter(Boolean).length} words)`);
+          } else {
+            const telemetry = generatePdfTelemetry(file, pdfData.total_pages || 1, '', filingAgency);
+            setContentText(telemetry);
+            setTranscribeStatus(`⚠️ PDF loaded (${pdfData.total_pages || 1} page(s) — scanned image, observational notes can be added below)`);
+          }
+        } else {
+          setContentText(`[PDF Document: ${file.name} (${(file.size / 1024).toFixed(1)} KB)]\n(Manual notes can be entered below)`);
+          setTranscribeStatus('⚠️ PDF extraction error, manual notes active');
+        }
+      } catch (err: any) {
+        console.error('PDF parsing error:', err);
+        setContentText(`[PDF Document: ${file.name}]\n(Manual notes can be entered below)`);
+        setTranscribeStatus('⚠️ Network error during PDF processing');
+      } finally {
+        setIsTranscribing(false);
+      }
+      return;
+    }
+
     const isVideo =
       !isAudio &&
       !isImage &&
+      !isPdf &&
       (fileType === 'video' || file.type.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm)$/i.test(file.name));
 
     if (isVideo) {
@@ -268,6 +322,7 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
 
   const fileTypeIcons = {
     text: <FileText className="w-4 h-4" />,
+    pdf: <FileText className="w-4 h-4 text-red-500" />,
     audio: <Volume2 className="w-4 h-4" />,
     image: <ImageIcon className="w-4 h-4" />,
     video: <Video className="w-4 h-4" />,
@@ -442,9 +497,33 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
                   <span className="underline text-blue-700">browse</span>
                 </p>
                 <p className="text-[10px] text-slate-500 font-bold mt-1">
-                  .txt · .pdf · .mp3 · .wav · .jpg · .png · .mp4 (English &amp; Hindi Audio Supported)
+                  .pdf · .txt · .mp3 · .wav · .jpg · .png · .mp4 (PDF text parsed &amp; audio transcribed via Sarvam AI)
                 </p>
               </div>
+
+              {/* PDF Preview Card */}
+              {mediaUrl && fileType === 'pdf' && (
+                <div className="border-2 border-black bg-neutral-900 p-3 flex flex-col gap-2 shadow-brutal text-white font-mono">
+                  <div className="flex items-center justify-between">
+                    <span className="font-black text-[#F5C842] uppercase text-[11px] flex items-center gap-1.5">
+                      <FileText className="w-4 h-4 text-red-400" />
+                      PDF EVIDENCE DOSSIER LOADED
+                    </span>
+                    <a
+                      href={mediaUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download={evidenceTitle ? `${evidenceTitle}.pdf` : 'evidence.pdf'}
+                      className="text-[10px] bg-[#F5C842] text-black font-black px-2.5 py-0.5 uppercase tracking-wider hover:bg-yellow-400 transition"
+                    >
+                      VIEW / DOWNLOAD PDF ↗
+                    </a>
+                  </div>
+                  <div className="text-[10px] text-slate-300">
+                    {transcribeStatus || `Attached PDF document · Parsed text populated below for Sarvam AI entity extraction.`}
+                  </div>
+                </div>
+              )}
 
               {/* Image Preview Thumbnail */}
               {mediaUrl && fileType === 'image' && (
@@ -539,8 +618,8 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
                 <label className="block text-[11px] font-black uppercase text-slate-700 mb-1.5">
                   Classification
                 </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {(['text', 'audio', 'image', 'video'] as const).map((ft) => (
+                <div className="grid grid-cols-5 gap-2">
+                  {(['text', 'pdf', 'audio', 'image', 'video'] as const).map((ft) => (
                     <button
                       key={ft}
                       type="button"
@@ -557,23 +636,6 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
                   ))}
                 </div>
               </div>
-
-              {/* Audio Transcription Status Banner */}
-              {(isTranscribing || transcribeStatus) && (
-                <div className={`p-2.5 border-2 border-black text-xs font-bold flex items-center justify-between gap-2 mb-4 ${
-                  isTranscribing ? 'bg-yellow-100 text-black animate-pulse' : 'bg-green-50 text-emerald-950'
-                }`}>
-                  <div className="flex items-center gap-2">
-                    <Volume2 className="w-4 h-4 shrink-0 text-black" />
-                    <span>{transcribeStatus}</span>
-                  </div>
-                  {isTranscribing && (
-                    <span className="text-[10px] bg-black text-white px-2 py-0.5 uppercase tracking-widest font-mono">
-                      SARVAM STT
-                    </span>
-                  )}
-                </div>
-              )}
 
               {/* Content Text */}
               <div>

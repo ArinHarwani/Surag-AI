@@ -140,6 +140,7 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
 
           {[
             { label: 'ALL MODALITIES', value: 'all', count: documents.length },
+            { label: 'PDF DOSSIERS', value: 'pdf', count: documents.filter(d => d.file_type === 'pdf').length },
             { label: 'AUDIO INTERCEPTS', value: 'audio', count: documents.filter(d => d.file_type === 'audio').length },
             { label: 'IMAGE & CCTV', value: 'image', count: documents.filter(d => d.file_type === 'image').length },
             { label: 'TEXT & STATEMENTS', value: 'text', count: documents.filter(d => d.file_type === 'text').length },
@@ -214,7 +215,15 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
                   <div className="flex items-center justify-between border-b border-black pb-2">
                     <div className="flex items-center space-x-2">
                       <div className="p-1.5 bg-black text-[#F5C842]">
-                        {isAudio ? <Music className="w-4 h-4" /> : isImage ? <ImageIcon className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                        {isAudio ? (
+                          <Music className="w-4 h-4" />
+                        ) : isImage ? (
+                          <ImageIcon className="w-4 h-4" />
+                        ) : doc.file_type === 'pdf' ? (
+                          <FileText className="w-4 h-4 text-red-400" />
+                        ) : (
+                          <FileText className="w-4 h-4" />
+                        )}
                       </div>
                       <div>
                         <div className="text-[11px] font-bold text-slate-600 uppercase">
@@ -350,10 +359,40 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
                     </div>
                   )}
 
+                  {/* PDF Document Preview Banner */}
+                  {doc.file_type === 'pdf' && (
+                    <div className="bg-[#1C1917] border-2 border-black p-3.5 flex items-center justify-between shadow-brutal text-white font-mono">
+                      <div className="flex items-center space-x-3">
+                        <div className="px-2 py-1 bg-red-600 text-white font-black text-xs border border-white">
+                          PDF
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-[#F5C842] uppercase block">
+                            OFFICIAL CASE DOSSIER // DOCUMENT EXHIBIT
+                          </span>
+                          <span className="text-[10px] text-slate-300">
+                            Full extracted textual records available for investigator review below.
+                          </span>
+                        </div>
+                      </div>
+                      {doc.media_url && (
+                        <a
+                          href={doc.media_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download={`${doc.title}.pdf`}
+                          className="px-3 py-1.5 bg-[#F5C842] text-black font-black text-xs uppercase border border-black hover:bg-yellow-400 transition"
+                        >
+                          OPEN / DOWNLOAD PDF ↗
+                        </a>
+                      )}
+                    </div>
+                  )}
+
                   {/* Content / Transcript */}
                   <div className="space-y-1.5 pt-1">
                     <div className="flex items-center justify-between text-[11px] font-black uppercase text-slate-700">
-                      <span>{isAudio ? 'SYNCHRONIZED TRANSCRIPT' : 'INGESTED FORENSIC CONTENT'}</span>
+                      <span>{isAudio ? 'SYNCHRONIZED TRANSCRIPT' : doc.file_type === 'pdf' ? 'PARSED PDF TEXT RECORD' : 'INGESTED FORENSIC CONTENT'}</span>
                       <span className="text-blue-700">EXTRACTED STREAM</span>
                     </div>
 

@@ -12,6 +12,7 @@ import {
   ContradictionStatus,
   ConnectionRequest,
   AgencySlug,
+  FileType,
 } from '@/types/investigation';
 import { supabase, realtimeRelay } from '@/lib/supabase/client';
 import { checkAndSeedSupabase } from '@/lib/supabase/init';
@@ -63,7 +64,7 @@ interface ProvenanceFocus {
   documentId: string;
   sourceOffset: string;
   snippet?: string;
-  mediaType?: 'text' | 'image' | 'audio' | 'video';
+  mediaType?: FileType;
   title?: string;
 }
 
