@@ -229,6 +229,34 @@ function ConnectionRequestsPanelInner({
                         );
                       })()}
 
+                      {/* CSV Viewer if CSV evidence was transmitted */}
+                      {(() => {
+                        const relatedCsvDoc = documents.find(
+                          (d) =>
+                            d.file_type === 'csv' &&
+                            (d.agency_id === agencies[req.requesting_agency_slug]?.id ||
+                              d.uploaded_by?.toLowerCase().includes('kota'))
+                        );
+                        
+                        const hasCsvText = req.case_brief_snapshot?.includes('[STRUCTURED FORENSIC DATA // CSV LOG]');
+
+                        if (!hasCsvText) return null;
+
+                        return (
+                          <div className="border-2 border-black bg-neutral-900 p-3 space-y-2 text-white shadow-brutal font-mono">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-black uppercase text-[#F5C842] flex items-center gap-1.5">
+                                <FileText className="w-4 h-4 text-emerald-400 shrink-0" />
+                                TRANSMITTED CSV EXHIBIT // STRUCTURED LOG
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-300">
+                              Full structured analytical data parsed &amp; ready for graph entity correlation.
+                            </p>
+                          </div>
+                        );
+                      })()}
+
                       {/* Brief snapshot */}
                       <div className="bg-white border border-slate-300 p-3 text-xs text-slate-700 font-sans leading-relaxed whitespace-pre-wrap max-h-36 overflow-y-auto">
                         <span className="font-mono font-bold text-slate-500 block mb-1 text-[10px]">EVIDENCE DOSSIER & TRANSCRIPT:</span>

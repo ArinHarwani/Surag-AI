@@ -1,4 +1,4 @@
-export type FileType = 'text' | 'image' | 'audio' | 'video' | 'pdf';
+export type FileType = 'text' | 'image' | 'audio' | 'video' | 'pdf' | 'csv';
 export type AgencySlug = 'jodhpur' | 'kota' | 'jaipur' | 'ajmer' | 'jaisalmer';
 export type ConnectionRequestStatus = 'pending' | 'accepted' | 'rejected';
 export type DocStatus = 'uploaded' | 'processing' | 'processed' | 'failed';

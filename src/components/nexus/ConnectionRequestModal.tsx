@@ -10,6 +10,7 @@ import {
   generateOpticalTelemetry,
   generatePdfTelemetry,
   generateInitialKotaEvidenceDisclosure,
+  generateCsvTelemetry,
 } from '@/lib/utils/evidenceFormatter';
 import {
   Link2,
@@ -36,6 +37,7 @@ interface ConnectionRequestModalProps {
 const fileTypeIcons: Record<string, React.ReactNode> = {
   text: <FileText className="w-4 h-4" />,
   pdf: <FileText className="w-4 h-4 text-red-500" />,
+  csv: <FileText className="w-4 h-4 text-emerald-500" />,
   audio: <Volume2 className="w-4 h-4" />,
   image: <ImageIcon className="w-4 h-4" />,
   video: <Video className="w-4 h-4" />,
@@ -67,7 +69,7 @@ function ConnectionRequestModalInner({
   // Media evidence inputs (used when Kota transmits evidence)
   const [evidenceTitle, setEvidenceTitle] = useState('');
   const [author, setAuthor] = useState('Inspector V. Meena (Kota CID)');
-  const [fileType, setFileType] = useState<'text' | 'audio' | 'image' | 'video' | 'pdf'>('pdf');
+  const [fileType, setFileType] = useState<'text' | 'audio' | 'image' | 'video' | 'pdf' | 'csv'>('pdf');
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcribeStatus, setTranscribeStatus] = useState<string | null>(null);
@@ -304,6 +306,35 @@ function ConnectionRequestModalInner({
       return;
     }
 
+    const isCsv =
+      fileType === 'csv' ||
+      file.type === 'text/csv' ||
+      file.name.toLowerCase().endsWith('.csv');
+
+    if (isCsv) {
+      setFileType('csv');
+      setEvidenceTitle(formatEvidenceTitleFromFile(file.name, 'csv'));
+      setIsTranscribing(true);
+      setTranscribeStatus('📊 Parsing structured CSV data...');
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = (e.target?.result as string) || '';
+        const rows = text.split('\n').filter((r) => r.trim().length > 0);
+        const telemetry = generateCsvTelemetry(file, rows.length, text, requestingAgency);
+        setContentText(telemetry);
+        setTranscribeStatus(`✅ CSV parsed (${rows.length} rows)`);
+        setIsTranscribing(false);
+      };
+      reader.onerror = () => {
+        setContentText(`[CSV Data: ${file.name}]\nFailed to read file.`);
+        setTranscribeStatus('⚠️ CSV read error');
+        setIsTranscribing(false);
+      };
+      reader.readAsText(file);
+      return;
+    }
+
     setFileType('text');
     setEvidenceTitle(formatEvidenceTitleFromFile(file.name, 'text'));
 
@@ -508,7 +539,7 @@ function ConnectionRequestModalInner({
                       Drop evidence file here or <span className="underline text-blue-700">browse</span>
                     </p>
                     <p className="text-[10px] text-slate-500 font-bold mt-1">
-                      .pdf · .jpg · .png · .mp3 · .wav · .mp4 · .txt (PDF text parsed &amp; audio transcribed via Sarvam AI)
+                      .pdf · .csv · .jpg · .png · .mp3 · .wav · .mp4 · .txt (PDF text parsed &amp; audio transcribed via Sarvam AI)
                     </p>
                   </div>
                 </div>
@@ -622,8 +653,8 @@ function ConnectionRequestModalInner({
                   <label className="block text-[11px] font-black uppercase text-slate-700 mb-1">
                     Classification
                   </label>
-                  <div className="grid grid-cols-5 gap-2">
-                    {(['text', 'pdf', 'audio', 'image', 'video'] as const).map((ft) => (
+                  <div className="grid grid-cols-6 gap-2">
+                    {(['text', 'pdf', 'csv', 'audio', 'image', 'video'] as const).map((ft) => (
                       <button
                         key={ft}
                         type="button"

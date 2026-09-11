@@ -58,7 +58,9 @@ From the photographic/optical evidence record, officer observations, and any OCR
 - Locations (markets, streets, intersections, toll plazas, cities, sectors)
 - Date and time from scene, metadata, or timestamps
 - Text overlays, signs, or exhibit labels
-Do NOT fabricate vehicle plates or locations that are not present in the input record.
+CRITICAL RULES:
+- FOCUS ONLY ON THE STUDENT NAMED "AARAV". You must extract entities, events, and relationships ONLY if they are directly connected to Aarav or his immediate network. Ignore all other unrelated suspicious activities, persons, or vehicles.
+- Do NOT fabricate vehicle plates or locations that are not present in the input record.
 Return ONLY valid JSON matching this schema:
 ${DETECTIVE_EXTRACTION_JSON_SCHEMA}`;
 

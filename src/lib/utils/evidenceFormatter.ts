@@ -6,7 +6,7 @@ import { formatDateIST, formatTimeIST } from './formatDate';
  */
 export function formatEvidenceTitleFromFile(
   fileName: string,
-  type: 'image' | 'audio' | 'video' | 'text' | 'pdf'
+  type: 'image' | 'audio' | 'video' | 'text' | 'pdf' | 'csv'
 ): string {
   if (!fileName) return 'Forensic Evidence Exhibit';
 
@@ -49,6 +49,19 @@ export function formatEvidenceTitleFromFile(
       return `Judicial Order / Chargesheet: ${formattedName}`;
     }
     return `Case Document: ${formattedName}`;
+  }
+
+  if (type === 'csv') {
+    if (/financial|bank|transaction|account|money/i.test(lower)) {
+      return `Financial Record: ${formattedName}`;
+    }
+    if (/call|cdr|phone|telecom/i.test(lower)) {
+      return `Call Data Record (CSV): ${formattedName}`;
+    }
+    if (/network|connection|log/i.test(lower)) {
+      return `Network Log: ${formattedName}`;
+    }
+    return `Structured Data Log: ${formattedName}`;
   }
 
   if (type === 'image') {
@@ -105,6 +118,36 @@ export function generatePdfTelemetry(
     ``,
     `--- EXTRACTED PDF TEXT RECORD ---`,
     cleanText || '[No embedded text detected in PDF document. Visual OCR notes can be entered below.]',
+  ].join('\n');
+}
+
+/**
+ * Generates structured telemetry for uploaded CSV files, incorporating
+ * dataset specifics and maintaining forensic evidence styling.
+ */
+export function generateCsvTelemetry(
+  file: { name: string; size: number },
+  rowCount: number,
+  extractedText: string,
+  agencyName?: string
+): string {
+  const sizeKb = (file.size / 1024).toFixed(1);
+  const now = new Date();
+  const dateStr = formatDateIST(now);
+  const timeStr = formatTimeIST(now);
+
+  const cleanText = extractedText.trim();
+
+  return [
+    `[STRUCTURED FORENSIC DATA // CSV LOG]`,
+    `Source File: ${file.name}`,
+    `Classification: Analytical Structured Data Record`,
+    `Records: ~${rowCount} Row(s) | File Size: ${sizeKb} KB`,
+    `Ingest Timestamp: ${dateStr} at ${timeStr}`,
+    `Depositing Agency: ${agencyName ? agencyName.toUpperCase() : 'INTELLIGENCE BUREAU'}`,
+    ``,
+    `--- EXTRACTED CSV DATA RECORD ---`,
+    cleanText || '[No readable text extracted from CSV.]',
   ].join('\n');
 }
 

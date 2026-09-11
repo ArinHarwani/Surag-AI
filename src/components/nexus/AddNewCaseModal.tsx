@@ -16,7 +16,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { AgencySlug } from '@/types/investigation';
-import { formatEvidenceTitleFromFile, generateOpticalTelemetry, generatePdfTelemetry } from '@/lib/utils/evidenceFormatter';
+import { formatEvidenceTitleFromFile, generateOpticalTelemetry, generatePdfTelemetry, generateCsvTelemetry } from '@/lib/utils/evidenceFormatter';
 
 interface AddNewCaseModalProps {
   onClose: () => void;
@@ -44,7 +44,7 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
   // Evidence-level fields (optional first evidence piece)
   const [evidenceTitle, setEvidenceTitle] = useState('');
   const [contentText, setContentText] = useState('');
-  const [fileType, setFileType] = useState<'text' | 'audio' | 'image' | 'video' | 'pdf'>('text');
+  const [fileType, setFileType] = useState<'text' | 'audio' | 'image' | 'video' | 'pdf' | 'csv'>('text');
   const [author, setAuthor] = useState('');
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -263,6 +263,35 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
       return;
     }
 
+    const isCsv =
+      fileType === 'csv' ||
+      file.type === 'text/csv' ||
+      file.name.toLowerCase().endsWith('.csv');
+
+    if (isCsv) {
+      setFileType('csv');
+      setEvidenceTitle(formatEvidenceTitleFromFile(file.name, 'csv'));
+      setIsTranscribing(true);
+      setTranscribeStatus('📊 Parsing structured CSV data...');
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = (e.target?.result as string) || '';
+        const rows = text.split('\n').filter((r) => r.trim().length > 0);
+        const telemetry = generateCsvTelemetry(file, rows.length, text, filingAgency);
+        setContentText(telemetry);
+        setTranscribeStatus(`✅ CSV parsed (${rows.length} rows)`);
+        setIsTranscribing(false);
+      };
+      reader.onerror = () => {
+        setContentText(`[CSV Data: ${file.name}]\nFailed to read file.`);
+        setTranscribeStatus('⚠️ CSV read error');
+        setIsTranscribing(false);
+      };
+      reader.readAsText(file);
+      return;
+    }
+
     setFileType('text');
     setEvidenceTitle(formatEvidenceTitleFromFile(file.name, 'text'));
 
@@ -323,6 +352,7 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
   const fileTypeIcons = {
     text: <FileText className="w-4 h-4" />,
     pdf: <FileText className="w-4 h-4 text-red-500" />,
+    csv: <FileText className="w-4 h-4 text-emerald-500" />,
     audio: <Volume2 className="w-4 h-4" />,
     image: <ImageIcon className="w-4 h-4" />,
     video: <Video className="w-4 h-4" />,
@@ -497,7 +527,7 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
                   <span className="underline text-blue-700">browse</span>
                 </p>
                 <p className="text-[10px] text-slate-500 font-bold mt-1">
-                  .pdf · .txt · .mp3 · .wav · .jpg · .png · .mp4 (PDF text parsed &amp; audio transcribed via Sarvam AI)
+                  .pdf · .csv · .txt · .mp3 · .wav · .jpg · .png · .mp4 (PDF text parsed &amp; audio transcribed via Sarvam AI)
                 </p>
               </div>
 
@@ -618,8 +648,8 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
                 <label className="block text-[11px] font-black uppercase text-slate-700 mb-1.5">
                   Classification
                 </label>
-                <div className="grid grid-cols-5 gap-2">
-                  {(['text', 'pdf', 'audio', 'image', 'video'] as const).map((ft) => (
+                <div className="grid grid-cols-6 gap-2">
+                  {(['text', 'pdf', 'csv', 'audio', 'image', 'video'] as const).map((ft) => (
                     <button
                       key={ft}
                       type="button"

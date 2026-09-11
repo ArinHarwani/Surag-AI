@@ -141,6 +141,7 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
           {[
             { label: 'ALL MODALITIES', value: 'all', count: documents.length },
             { label: 'PDF DOSSIERS', value: 'pdf', count: documents.filter(d => d.file_type === 'pdf').length },
+            { label: 'CSV DATA', value: 'csv', count: documents.filter(d => d.file_type === 'csv').length },
             { label: 'AUDIO INTERCEPTS', value: 'audio', count: documents.filter(d => d.file_type === 'audio').length },
             { label: 'IMAGE & CCTV', value: 'image', count: documents.filter(d => d.file_type === 'image').length },
             { label: 'TEXT & STATEMENTS', value: 'text', count: documents.filter(d => d.file_type === 'text').length },
@@ -221,6 +222,8 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
                           <ImageIcon className="w-4 h-4" />
                         ) : doc.file_type === 'pdf' ? (
                           <FileText className="w-4 h-4 text-red-400" />
+                        ) : doc.file_type === 'csv' ? (
+                          <FileText className="w-4 h-4 text-emerald-500" />
                         ) : (
                           <FileText className="w-4 h-4" />
                         )}
@@ -389,10 +392,40 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
                     </div>
                   )}
 
+                  {/* CSV Document Preview Banner */}
+                  {doc.file_type === 'csv' && (
+                    <div className="bg-[#1C1917] border-2 border-black p-3.5 flex items-center justify-between shadow-brutal text-white font-mono">
+                      <div className="flex items-center space-x-3">
+                        <div className="px-2 py-1 bg-emerald-600 text-white font-black text-xs border border-white">
+                          CSV
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-[#F5C842] uppercase block">
+                            STRUCTURED LOG // ANALYTICAL DATA
+                          </span>
+                          <span className="text-[10px] text-slate-300">
+                            Raw CSV data processed into structured entity telemetry.
+                          </span>
+                        </div>
+                      </div>
+                      {doc.media_url && (
+                        <a
+                          href={doc.media_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download={`${doc.title}.csv`}
+                          className="px-3 py-1.5 bg-[#F5C842] text-black font-black text-xs uppercase border border-black hover:bg-yellow-400 transition"
+                        >
+                          OPEN / DOWNLOAD CSV ↗
+                        </a>
+                      )}
+                    </div>
+                  )}
+
                   {/* Content / Transcript */}
                   <div className="space-y-1.5 pt-1">
                     <div className="flex items-center justify-between text-[11px] font-black uppercase text-slate-700">
-                      <span>{isAudio ? 'SYNCHRONIZED TRANSCRIPT' : doc.file_type === 'pdf' ? 'PARSED PDF TEXT RECORD' : 'INGESTED FORENSIC CONTENT'}</span>
+                      <span>{isAudio ? 'SYNCHRONIZED TRANSCRIPT' : doc.file_type === 'pdf' ? 'PARSED PDF TEXT RECORD' : doc.file_type === 'csv' ? 'PARSED CSV TEXT RECORD' : 'INGESTED FORENSIC CONTENT'}</span>
                       <span className="text-blue-700">EXTRACTED STREAM</span>
                     </div>
 
