@@ -156,8 +156,40 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
       reader.readAsDataURL(file);
 
       try {
+        const resizeImage = (file: File): Promise<Blob> => {
+          return new Promise((resolve) => {
+            const img = new window.Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const MAX_WIDTH = 800;
+              const MAX_HEIGHT = 800;
+              let width = img.width;
+              let height = img.height;
+
+              if (width > height) {
+                if (width > MAX_WIDTH) {
+                  height *= MAX_WIDTH / width;
+                  width = MAX_WIDTH;
+                }
+              } else {
+                if (height > MAX_HEIGHT) {
+                  width *= MAX_HEIGHT / height;
+                  height = MAX_HEIGHT;
+                }
+              }
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx?.drawImage(img, 0, 0, width, height);
+              canvas.toBlob((blob) => resolve(blob as Blob), 'image/jpeg', 0.8);
+            };
+            img.src = URL.createObjectURL(file);
+          });
+        };
+
         const formData = new FormData();
-        formData.append('file', file);
+        const resizedBlob = await resizeImage(file);
+        formData.append('file', resizedBlob, file.name);
         const fullCaseName = caseNumber.trim() ? `${caseNumber.trim()}: ${caseName.trim()}` : caseName.trim();
         formData.append('caseContext', fullCaseName || evidenceTitle);
 
