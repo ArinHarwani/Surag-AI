@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'CIIP — Collaborative Investigative Intelligence Platform | PS #16',
+  title: 'NEXUS Intel Fusion — Collaborative Investigative Intelligence Platform',
   description:
-    'From Fragmented Signals to an Explainable Intelligence Picture. Shared real-time investigative intelligence platform for Jodhpur and Kota Police forces.',
+    'From Fragmented Signals to an Explainable Intelligence Picture. Classified Joint Operational Fusion Command for Jodhpur and Kota Police forces.',
 };
 
 export default function RootLayout({
@@ -29,7 +29,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
-      <body className="min-h-full bg-slate-950 text-slate-100 flex flex-col selection:bg-cyan-500 selection:text-black">
+      <body className="min-h-full bg-[#090A0D] text-[#EDE9E0] flex flex-col font-mono selection:bg-[#F4C430] selection:text-black">
         <InvestigationProvider>{children}</InvestigationProvider>
       </body>
     </html>
