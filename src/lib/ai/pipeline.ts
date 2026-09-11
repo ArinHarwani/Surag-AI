@@ -37,7 +37,8 @@ export interface ExtractionResult {
 
 /**
  * Executes Detective Entity & Event Extraction on a document.
- * Tries Groq first if GROQ_API_KEY is configured, then Gemini if GEMINI_API_KEY is configured,
+ * Tries Sarvam AI first (with bilingual English & Hindi entity/event extraction and translation) if SARVAM_API_KEY is configured,
+ * then Gemini if GEMINI_API_KEY is configured,
  * and gracefully falls back to the deterministic forensic rule engine.
  */
 export async function extractDocumentIntelligence(
@@ -46,43 +47,75 @@ export async function extractDocumentIntelligence(
 ): Promise<ExtractionResult> {
   const content = doc.content_text || doc.title;
 
-  // 1. Try Groq API if available
-  const groqApiKey = process.env.GROQ_API_KEY || (typeof window !== 'undefined' ? localStorage.getItem('GROQ_API_KEY') : null);
-  if (groqApiKey) {
+  // 1. Try Sarvam AI API (Dedicated Bilingual English/Hindi Extraction)
+  if (typeof window !== 'undefined') {
     try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const response = await fetch('/api/ai/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: doc.title,
+          content,
+          file_type: doc.file_type,
+          uploaded_by: doc.uploaded_by,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.entities && data.events) {
+          return {
+            entities: data.entities || [],
+            events: data.events || [],
+            suggestedRelationships: data.suggestedRelationships || [],
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('Sarvam route extraction encountered an issue, falling back to direct key:', err);
+    }
+  }
+
+  const sarvamApiKey = process.env.SARVAM_API_KEY || (typeof window !== 'undefined' ? localStorage.getItem('SARVAM_API_KEY') : null);
+  if (sarvamApiKey) {
+    try {
+      const response = await fetch('https://api.sarvam.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${groqApiKey}`,
+          'api-subscription-key': sarvamApiKey,
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: 'sarvam-105b-conversations',
           messages: [
-            { role: 'system', content: `${DETECTIVE_EXTRACTION_SYSTEM_PROMPT}\nSCHEMA:\n${DETECTIVE_EXTRACTION_JSON_SCHEMA}` },
+            { role: 'system', content: `${DETECTIVE_EXTRACTION_SYSTEM_PROMPT}\nSCHEMA:\n${DETECTIVE_EXTRACTION_JSON_SCHEMA}\nReturn ONLY valid JSON matching the schema.` },
             {
               role: 'user',
               content: `Analyze this document from ${doc.uploaded_by} (File Type: ${doc.file_type}):\n\nTITLE: ${doc.title}\nCONTENT:\n${content}`,
             },
           ],
-          response_format: { type: 'json_object' },
           temperature: 0.1,
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        const parsed = JSON.parse(data.choices[0].message.content);
-        if (parsed.entities && parsed.events) {
-          return {
-            entities: parsed.entities || [],
-            events: parsed.events || [],
-            suggestedRelationships: parsed.relationships || [],
-          };
+        const choice = data.choices?.[0]?.message;
+        const raw = choice?.content || choice?.reasoning_content || '';
+        const jsonMatch = raw.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.entities && parsed.events) {
+            return {
+              entities: parsed.entities || [],
+              events: parsed.events || [],
+              suggestedRelationships: parsed.relationships || [],
+            };
+          }
         }
       }
     } catch (err) {
-      console.warn('Groq extraction encountered an issue, falling back to local detective engine:', err);
+      console.warn('Sarvam AI extraction encountered an issue, falling back to local detective engine:', err);
     }
   }
 
@@ -327,18 +360,18 @@ export async function explainContradiction(candidate: FlaggedCandidate): Promise
     .replace('{{elapsed_minutes}}', candidate.timeDiffMinutes.toString())
     .replace('{{required_speed_kmh}}', candidate.speedRequiredKmh.toString());
 
-  // Try LLM for explanation if available
-  const groqApiKey = process.env.GROQ_API_KEY || (typeof window !== 'undefined' ? localStorage.getItem('GROQ_API_KEY') : null);
-  if (groqApiKey) {
+  // Try Sarvam LLM for explanation if available
+  const sarvamApiKey = process.env.SARVAM_API_KEY || (typeof window !== 'undefined' ? localStorage.getItem('SARVAM_API_KEY') : null);
+  if (sarvamApiKey) {
     try {
-      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const resp = await fetch('https://api.sarvam.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${groqApiKey}`,
+          'api-subscription-key': sarvamApiKey,
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: 'sarvam-105b-conversations',
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.2,
           max_tokens: 200,
@@ -346,10 +379,13 @@ export async function explainContradiction(candidate: FlaggedCandidate): Promise
       });
       if (resp.ok) {
         const data = await resp.json();
-        return data.choices[0].message.content.trim();
+        const content = data.choices?.[0]?.message?.content || data.choices?.[0]?.message?.reasoning_content || '';
+        if (content.trim()) {
+          return content.trim();
+        }
       }
     } catch (e) {
-      console.warn('Groq explanation call error:', e);
+      console.warn('Sarvam explanation call error:', e);
     }
   }
 
@@ -387,17 +423,17 @@ export async function generateGraphRagSummary(
     .replace('{{events_json}}', JSON.stringify(events.map((ev) => ({ id: ev.id, desc: ev.description, time: ev.event_timestamp, offset: ev.source_offset, loc: ev.location_text })), null, 2))
     .replace('{{contradictions_json}}', JSON.stringify(contradictions.map((c) => ({ type: c.type, desc: c.description, status: c.status })), null, 2));
 
-  const groqApiKey = process.env.GROQ_API_KEY || (typeof window !== 'undefined' ? localStorage.getItem('GROQ_API_KEY') : null);
-  if (groqApiKey) {
+  const sarvamApiKey = process.env.SARVAM_API_KEY || (typeof window !== 'undefined' ? localStorage.getItem('SARVAM_API_KEY') : null);
+  if (sarvamApiKey) {
     try {
-      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const resp = await fetch('https://api.sarvam.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${groqApiKey}`,
+          'api-subscription-key': sarvamApiKey,
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: 'sarvam-105b-conversations',
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.2,
           max_tokens: 800,
@@ -405,10 +441,13 @@ export async function generateGraphRagSummary(
       });
       if (resp.ok) {
         const data = await resp.json();
-        return data.choices[0].message.content;
+        const content = data.choices?.[0]?.message?.content || data.choices?.[0]?.message?.reasoning_content || '';
+        if (content.trim()) {
+          return content;
+        }
       }
     } catch (e) {
-      console.warn('Groq summary call error:', e);
+      console.warn('Sarvam summary call error:', e);
     }
   }
 

@@ -28,8 +28,11 @@ A shared, real-time investigative intelligence platform where multi-modal eviden
 - **Styling**: Tailwind CSS (v4) with Tactical Dark Mode
 - **Backend & Database**: Supabase (Postgres + Storage + Realtime)
 - **AI Intelligence**:
-  - **Groq API**: High-speed `llama-3.3-70b-versatile` for detective extraction, relation analysis, and GraphRAG summaries.
-  - **Gemini API**: Multimodal audio transcription and optical CCTV vision processing.
+  - **Sarvam AI API**: Native Indian-language bilingual (Hindi & English) intelligence:
+    - `saaras:v3` Speech-to-Text for multi-dialect audio evidence transcription (English & Hindi)
+    - `mayura:v1` translation engine for cross-lingual Hindi FIR/telemetry grounding
+    - `sarvam-105b-conversations` LLM for forensic detective extraction, relation discovery, and GraphRAG briefs.
+  - **Gemini API**: Optical CCTV vision processing.
   - **Zero-Latency Heuristic Detective Engine**: Resilient fallback engine.
 - **Visualizations**:
   - **Relationship Graph**: `react-force-graph-2d` (Canvas rendering with entity color coding and click-to-explain drawer).
@@ -73,8 +76,9 @@ npm install
 ### 2. Configure Environment Variables
 Create a `.env.local` file:
 ```env
-# Groq API
-GROQ_API_KEY=your_groq_api_key
+# Sarvam AI API (Bilingual Hindi/English & Saaras Audio Transcription)
+SARVAM_API_KEY=sk_r68m1zyn_YMGdXIfqtAbxPp01nGDJuvpC
+NEXT_PUBLIC_SARVAM_API_KEY=sk_r68m1zyn_YMGdXIfqtAbxPp01nGDJuvpC
 
 # Supabase (Project: olcylyomrjhzqvjwjovf)
 NEXT_PUBLIC_SUPABASE_URL=https://olcylyomrjhzqvjwjovf.supabase.co
