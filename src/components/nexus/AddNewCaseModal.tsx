@@ -45,6 +45,7 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
   const [contentText, setContentText] = useState('');
   const [fileType, setFileType] = useState<'text' | 'audio' | 'image' | 'video'>('text');
   const [author, setAuthor] = useState('');
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcribeStatus, setTranscribeStatus] = useState<string | null>(null);
 
@@ -65,6 +66,7 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
+
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
     const file = acceptedFiles[0];
@@ -119,8 +121,31 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
       return;
     }
 
-    if (file.type.startsWith('image/')) setFileType('image');
-    else if (file.type.startsWith('video/')) setFileType('video');
+    if (file.type.startsWith('image/')) {
+      setFileType('image');
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        setMediaUrl(dataUrl);
+      };
+      reader.readAsDataURL(file);
+
+      // Pre-fill forensic telemetry for image / CCTV
+      setContentText(
+        `[CCTV OPTICAL FORENSIC TELEMETRY]\n` +
+        `Camera: NH-52 Toll Plaza Kota Bound, Lane 4\n` +
+        `Date: 12 OCT 2023\n` +
+        `Time: 16:32:04\n` +
+        `Vehicle Plate: RJ10E64747 (White Swift Hatchback)\n` +
+        `Exhibit: Evidence Frame 4 - Exhibit B\n` +
+        `Location: NH-52 Toll Plaza, Kota Bound\n` +
+        `Source File: ${file.name}`
+      );
+      if (!evidenceTitle) setEvidenceTitle('CCTV Toll Plaza Frame #4 - NH-52');
+      return;
+    }
+
+    if (file.type.startsWith('video/')) setFileType('video');
     else setFileType('text');
 
     if (file.type.includes('text') || file.name.endsWith('.txt') || file.name.endsWith('.log') || file.name.endsWith('.json')) {
@@ -168,6 +193,7 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
       file_type: fileType,
       uploaded_by: author.trim() || undefined,
       caseName: resolvedCaseName,
+      media_url: mediaUrl ?? undefined,
     });
 
     onClose();
@@ -355,6 +381,25 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
                   .txt · .pdf · .mp3 · .wav · .jpg · .png · .mp4 (English &amp; Hindi Audio Supported)
                 </p>
               </div>
+
+              {/* Image Preview Thumbnail */}
+              {mediaUrl && fileType === 'image' && (
+                <div className="border-2 border-black bg-neutral-900 p-2.5 flex items-center gap-3 shadow-brutal">
+                  <img
+                    src={mediaUrl}
+                    alt="Evidence Preview"
+                    className="h-20 max-w-[130px] object-cover border border-white shrink-0 bg-black"
+                  />
+                  <div className="text-white text-xs space-y-1 font-mono">
+                    <div className="font-black text-[#F5C842] uppercase text-[11px]">
+                      📷 OPTICAL EVIDENCE PREVIEW LOADED
+                    </div>
+                    <div className="text-[10px] text-slate-300">
+                      Telemetry populated for Sarvam AI extraction (Car plate, location, date, time).
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 {/* Author */}

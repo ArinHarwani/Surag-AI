@@ -29,6 +29,7 @@ export const NexusShell: React.FC<NexusShellProps> = ({
   const [currentTab, setCurrentTab] = useState<NexusNavTab>(initialTab);
   const [isAddCaseOpen, setIsAddCaseOpen] = useState(false);
   const [isConnectOpen, setIsConnectOpen] = useState(false);
+  const [connectTargetAgency, setConnectTargetAgency] = useState<AgencySlug | undefined>(undefined);
   const [isRequestsPanelOpen, setIsRequestsPanelOpen] = useState(false);
 
   const {
@@ -102,7 +103,10 @@ export const NexusShell: React.FC<NexusShellProps> = ({
         currentTab={currentTab}
         scopedAgency={scopedAgency}
         onOpenUpload={() => setIsAddCaseOpen(true)}
-        onOpenConnect={() => setIsConnectOpen(true)}
+        onOpenConnect={(targetCity) => {
+          setConnectTargetAgency(targetCity);
+          setIsConnectOpen(true);
+        }}
         onResetCase={clearAllCaseData}
         onSelectTab={setCurrentTab}
         isProcessing={isProcessing}
@@ -231,6 +235,7 @@ export const NexusShell: React.FC<NexusShellProps> = ({
           caseId={documents[0]?.case_id ?? ''}
           caseName={activeCaseName ?? 'Active Case'}
           documents={documents}
+          targetAgency={connectTargetAgency}
         />
       )}
 

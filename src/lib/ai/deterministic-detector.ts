@@ -41,6 +41,9 @@ export function findCandidateContradictions(
       const evtA = events[i];
       const evtB = events[j];
 
+      // Ensure events belong to the same case
+      if (evtA.case_id && evtB.case_id && evtA.case_id !== evtB.case_id) continue;
+
       // Check if this pair is already recorded as a contradiction
       const alreadyFlagged = existingContradictions.some(
         (c) =>

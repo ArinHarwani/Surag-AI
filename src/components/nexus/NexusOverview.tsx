@@ -20,6 +20,9 @@ import { formatTimeIST } from '@/lib/utils/formatDate';
 const AGENCY_LABELS: Record<AgencySlug, string> = {
   jodhpur: 'Jodhpur Police HQ',
   kota: 'Kota Police CID',
+  jaipur: 'Jaipur Police HQ',
+  ajmer: 'Ajmer District Police',
+  jaisalmer: 'Jaisalmer Border Police',
 };
 
 interface NexusOverviewProps {

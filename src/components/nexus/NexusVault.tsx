@@ -23,7 +23,8 @@ import {
   SlidersHorizontal,
   Layers,
   AlertTriangle,
-  FolderPlus
+  FolderPlus,
+  X,
 } from 'lucide-react';
 import { Document, Entity, FileType } from '@/types/investigation';
 import { formatTimeIST } from '@/lib/utils/formatDate';
@@ -44,6 +45,7 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedModality, setSelectedModality] = useState<string>('all');
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const [expandedImage, setExpandedImage] = useState<{ url: string; title: string } | null>(null);
 
   const filteredDocs = documents.filter((doc) => {
     const matchesSearch = 
@@ -269,13 +271,37 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
 
                   {/* Image/CCTV preview */}
                   {isImage && (
-                    <div className="bg-[#111111] text-white border-2 border-black p-4 flex flex-col items-center justify-center relative min-h-[120px]">
-                      <div className="border border-dashed border-emerald-500 w-full p-4 flex flex-col items-center justify-center bg-emerald-950/20">
-                        <ImageIcon className="w-8 h-8 text-emerald-400 mb-1" />
-                        <span className="text-xs font-mono text-slate-200 font-bold uppercase">
-                          {doc.title} // OPTICAL FORENSIC CAPTURE
-                        </span>
-                      </div>
+                    <div className="bg-[#111111] text-white border-2 border-black p-3 flex flex-col items-center justify-center relative">
+                      {doc.media_url ? (
+                        <div className="relative group w-full flex flex-col items-center">
+                          <img
+                            src={doc.media_url}
+                            alt={doc.title}
+                            className="max-h-72 w-auto object-contain border border-neutral-700 shadow-md cursor-pointer hover:opacity-95 transition"
+                            onClick={() => setExpandedImage({ url: doc.media_url!, title: doc.title })}
+                          />
+                          <div className="mt-2 flex items-center justify-between w-full text-[10px] font-mono text-neutral-300 px-1 border-t border-neutral-800 pt-1.5">
+                            <span className="text-[#F5C842] font-black uppercase">
+                              OPTICAL FORENSIC CAPTURE // {doc.title}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedImage({ url: doc.media_url!, title: doc.title })}
+                              className="text-emerald-400 hover:text-emerald-300 font-bold underline flex items-center gap-1"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              <span>CLICK TO ENLARGE</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="border border-dashed border-emerald-500 w-full p-4 flex flex-col items-center justify-center bg-emerald-950/20">
+                          <ImageIcon className="w-8 h-8 text-emerald-400 mb-1" />
+                          <span className="text-xs font-mono text-slate-200 font-bold uppercase">
+                            {doc.title} // OPTICAL FORENSIC CAPTURE
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -361,6 +387,38 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Lightbox Enlarge Modal */}
+      {expandedImage && (
+        <div
+          className="fixed inset-0 z-[250] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setExpandedImage(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] bg-black border-2 border-[#F5C842] shadow-brutal-lg flex flex-col p-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-800 text-white font-mono text-xs mb-2">
+              <span className="font-black text-[#F5C842] uppercase tracking-wider">
+                FORENSIC IMAGE VIEWER // {expandedImage.title}
+              </span>
+              <button
+                onClick={() => setExpandedImage(null)}
+                className="p-1 hover:bg-white/20 text-white transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto flex items-center justify-center bg-black">
+              <img
+                src={expandedImage.url}
+                alt={expandedImage.title}
+                className="max-h-[75vh] w-auto object-contain"
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>

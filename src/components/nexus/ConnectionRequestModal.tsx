@@ -12,6 +12,7 @@ interface ConnectionRequestModalProps {
   caseId: string;
   caseName: string;
   documents: Document[];
+  targetAgency?: AgencySlug;
 }
 
 function ConnectionRequestModalInner({
@@ -19,6 +20,7 @@ function ConnectionRequestModalInner({
   requestingAgency,
   caseName,
   documents,
+  targetAgency,
 }: ConnectionRequestModalProps) {
   const { sendConnectionRequest, agencies } = useInvestigation();
 
@@ -28,7 +30,7 @@ function ConnectionRequestModalInner({
   );
 
   const [selectedTarget, setSelectedTarget] = useState<AgencySlug>(
-    partnerAgencies[0]?.slug ?? (requestingAgency === 'jodhpur' ? 'kota' : 'jodhpur')
+    targetAgency ?? partnerAgencies[0]?.slug ?? (requestingAgency === 'jodhpur' ? 'kota' : 'jodhpur')
   );
   const [sent, setSent] = useState(false);
 

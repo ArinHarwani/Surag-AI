@@ -1,5 +1,5 @@
 export type FileType = 'text' | 'image' | 'audio' | 'video';
-export type AgencySlug = 'jodhpur' | 'kota';
+export type AgencySlug = 'jodhpur' | 'kota' | 'jaipur' | 'ajmer' | 'jaisalmer';
 export type ConnectionRequestStatus = 'pending' | 'accepted' | 'rejected';
 export type DocStatus = 'uploaded' | 'processing' | 'processed' | 'failed';
 export type TimestampConfidence = 'exact' | 'approximate' | 'inferred';
@@ -11,7 +11,7 @@ export type ContradictionStatus = 'flagged' | 'reviewed' | 'dismissed';
 export interface Agency {
   id: string;
   name: string;
-  slug: 'jodhpur' | 'kota';
+  slug: AgencySlug;
   color: string;
   badge: string;
 }

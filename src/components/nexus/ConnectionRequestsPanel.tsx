@@ -14,10 +14,16 @@ interface ConnectionRequestsPanelProps {
 const AGENCY_LABELS: Record<AgencySlug, string> = {
   jodhpur: 'Jodhpur Police HQ',
   kota: 'Kota Police CID',
+  jaipur: 'Jaipur Police HQ',
+  ajmer: 'Ajmer District Police',
+  jaisalmer: 'Jaisalmer Border Police',
 };
 const AGENCY_COLORS: Record<AgencySlug, string> = {
   jodhpur: '#0284C7',
   kota: '#D97706',
+  jaipur: '#059669',
+  ajmer: '#7C3AED',
+  jaisalmer: '#DC2626',
 };
 
 function ConnectionRequestsPanelInner({

@@ -36,6 +36,27 @@ const AGENCIES: Record<AgencySlug, Agency> = {
     color: '#d97706',
     badge: 'KOTA-CID',
   },
+  jaipur: {
+    id: '33333333-3333-3333-3333-333333333333',
+    name: 'Rajasthan Police HQ (Jaipur)',
+    slug: 'jaipur',
+    color: '#059669',
+    badge: 'JAIPUR-HQ',
+  },
+  ajmer: {
+    id: '44444444-4444-4444-4444-444444444444',
+    name: 'Ajmer District Police',
+    slug: 'ajmer',
+    color: '#7C3AED',
+    badge: 'AJMER-DIST',
+  },
+  jaisalmer: {
+    id: '55555555-5555-5555-5555-555555555555',
+    name: 'Jaisalmer Border Police',
+    slug: 'jaisalmer',
+    color: '#DC2626',
+    badge: 'JAISALMER-BORDER',
+  },
 };
 
 interface ProvenanceFocus {
@@ -191,18 +212,25 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
 
       if (mounted && cases && cases.length > 0) {
         const activeCase = cases[0];
-        // Convert to UI state
+        // Convert to UI state with strict case isolation
+        const caseDocs = (docs || []).filter((d) => d.case_id === activeCase.id).map((d) => ({ ...d, media_url: d.storage_path }));
+        const caseEnts = (ents || []).filter((e) => e.case_id === activeCase.id);
+        const caseEvts = (evts || []).filter((e) => e.case_id === activeCase.id);
+        const caseRels = (rels || []).filter((r) => r.case_id === activeCase.id);
+        const caseCons = (cons || []).filter((c) => c.case_id === activeCase.id);
+        const caseReqs = (reqs || []).filter((r) => r.case_id === activeCase.id);
+
         setState((prev) => ({
           ...prev,
           activeCaseId: activeCase.id,
           activeCaseName: activeCase.name,
           activeCaseFilingAgency: Object.values(AGENCIES).find(a => a.id === activeCase.filing_agency_id)?.slug ?? null,
-          documents: (docs || []).map(d => ({ ...d, media_url: d.storage_path })) as Document[],
-          entities: (ents || []) as Entity[],
-          events: (evts || []) as Event[],
-          relationships: (rels || []) as Relationship[],
-          contradictions: (cons || []) as Contradiction[],
-          connectionRequests: (reqs || []).map(r => ({
+          documents: caseDocs as Document[],
+          entities: caseEnts as Entity[],
+          events: caseEvts as Event[],
+          relationships: caseRels as Relationship[],
+          contradictions: caseCons as Contradiction[],
+          connectionRequests: caseReqs.map(r => ({
             ...r,
             requesting_agency_slug: Object.values(AGENCIES).find(a => a.id === r.requesting_agency_id)?.slug,
             target_agency_slug: Object.values(AGENCIES).find(a => a.id === r.target_agency_id)?.slug,
@@ -397,11 +425,11 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
       setState((prev) => {
         // ── Case isolation: if this is a brand-new case, discard ALL data from
         //    the previous session so nothing bleeds across cases.
-        const isNewCase = prev.activeCaseId !== null && prev.activeCaseId !== caseId;
-        const baseEntities   = isNewCase ? [] : prev.entities;
-        const baseEvents      = isNewCase ? [] : prev.events;
-        const baseRelationships = isNewCase ? [] : prev.relationships;
-        const baseContradictions = isNewCase ? [] : prev.contradictions;
+        const isNewCase = prev.activeCaseId !== caseId;
+        const baseEntities = isNewCase ? [] : prev.entities.filter((e) => e.case_id === caseId);
+        const baseEvents = isNewCase ? [] : prev.events.filter((e) => e.case_id === caseId);
+        const baseRelationships = isNewCase ? [] : prev.relationships.filter((r) => r.case_id === caseId);
+        const baseContradictions = isNewCase ? [] : prev.contradictions.filter((c) => c.case_id === caseId);
 
         const newEntityRecords: Entity[] = extraction.entities
           .filter((raw) => !baseEntities.some((e) => e.name.toLowerCase() === raw.name.toLowerCase()))
@@ -687,6 +715,7 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
 
   // ── Case Management ────────────────────────────────────────────────────────
   const clearAllCaseData = () => {
+    const prevCaseId = state.activeCaseId;
     setState(EMPTY_CASE_STATE);
     setSelectedEntity(null);
     setSelectedRelationship(null);
@@ -694,6 +723,17 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
     setSelectedDocument(null);
     setProvenanceFocus(null);
     if (typeof window !== 'undefined') localStorage.removeItem(STORAGE_KEY);
+    if (supabase && prevCaseId) {
+      Promise.all([
+        supabase.from('contradictions').delete().eq('case_id', prevCaseId),
+        supabase.from('relationships').delete().eq('case_id', prevCaseId),
+        supabase.from('events').delete().eq('case_id', prevCaseId),
+        supabase.from('entities').delete().eq('case_id', prevCaseId),
+        supabase.from('documents').delete().eq('case_id', prevCaseId),
+        supabase.from('connection_requests').delete().eq('case_id', prevCaseId),
+        supabase.from('cases').delete().eq('id', prevCaseId),
+      ]).catch((err) => console.warn('Supabase reset cleanup error:', err));
+    }
     realtimeRelay.publish('STATE_RESET', {});
   };
 
