@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const SARVAM_API_KEY = process.env.SARVAM_API_KEY || 'sk_r68m1zyn_YMGdXIfqtAbxPp01nGDJuvpC';
+const SARVAM_API_KEY = process.env.SARVAM_API_KEY || '';
 
 export async function POST(req: NextRequest) {
   try {

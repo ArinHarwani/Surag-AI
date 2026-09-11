@@ -77,8 +77,8 @@ npm install
 Create a `.env.local` file:
 ```env
 # Sarvam AI API (Bilingual Hindi/English & Saaras Audio Transcription)
-SARVAM_API_KEY=sk_r68m1zyn_YMGdXIfqtAbxPp01nGDJuvpC
-NEXT_PUBLIC_SARVAM_API_KEY=sk_r68m1zyn_YMGdXIfqtAbxPp01nGDJuvpC
+SARVAM_API_KEY=your_sarvam_api_key_here
+NEXT_PUBLIC_SARVAM_API_KEY=your_sarvam_api_key_here
 
 # Supabase (Project: olcylyomrjhzqvjwjovf)
 NEXT_PUBLIC_SUPABASE_URL=https://olcylyomrjhzqvjwjovf.supabase.co
