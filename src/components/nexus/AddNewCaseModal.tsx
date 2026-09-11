@@ -40,6 +40,8 @@ function AddNewCaseModalInner({ onClose, filingAgency }: AddNewCaseModalProps) {
   const [contentText, setContentText] = useState('');
   const [fileType, setFileType] = useState<'text' | 'audio' | 'image' | 'video'>('text');
   const [author, setAuthor] = useState('');
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcribeStatus, setTranscribeStatus] = useState<string | null>(null);
 
   // Disable body scroll while modal is open
   useEffect(() => {
@@ -58,35 +60,74 @@ function AddNewCaseModalInner({ onClose, filingAgency }: AddNewCaseModalProps) {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    if (acceptedFiles.length === 0) return;
+    const file = acceptedFiles[0];
+    if (!evidenceTitle) setEvidenceTitle(file.name.replace(/\.[^/.]+$/, ''));
 
-  const onDrop = useCallback(
-    (acceptedFiles: File[]) => {
-      if (acceptedFiles.length === 0) return;
-      const file = acceptedFiles[0];
-      if (!evidenceTitle) setEvidenceTitle(file.name.replace(/\.[^/.]+$/, ''));
-      if (file.type.startsWith('audio/')) setFileType('audio');
-      else if (file.type.startsWith('image/')) setFileType('image');
-      else if (file.type.startsWith('video/')) setFileType('video');
-      else setFileType('text');
+    const isAudio =
+      file.type.startsWith('audio/') ||
+      /\.(mp3|wav|m4a|ogg|aac|flac|wma)$/i.test(file.name);
 
-      if (
-        file.type.includes('text') ||
-        file.name.endsWith('.txt') ||
-        file.name.endsWith('.log')
-      ) {
-        const reader = new FileReader();
-        reader.onload = (e) => setContentText(e.target?.result as string);
-        reader.readAsText(file);
-      } else {
-        setContentText(
-          `[Multimodal Ingest: ${file.name}]\nFormat: ${file.type || 'Binary'}\nSize: ${(
-            file.size / 1024
-          ).toFixed(1)} KB\nExtracted forensic telemetry ready for AI model analysis.`
-        );
+    if (isAudio) {
+      setFileType('audio');
+      setIsTranscribing(true);
+      setTranscribeStatus('🎙️ Sarvam AI (Saaras): Transcribing speech (English / Hindi)...');
+      setContentText(`[Transcribing audio via Sarvam AI (${file.name})... please wait]`);
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const res = await fetch('/api/ai/transcribe', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.transcript) {
+            let formatted = `[SARVAM AI FORENSIC TRANSCRIPT — ${file.name}]\n`;
+            if (data.english_translation && data.english_translation.trim() !== data.transcript.trim()) {
+              formatted += `Original Language: ${data.language_code || 'Hindi'}\n\n--- ORIGINAL TRANSCRIPT ---\n${data.transcript}\n\n--- ENGLISH TRANSLATION (SARVAM MAYURA) ---\n${data.english_translation}`;
+            } else {
+              formatted += `Language: ${data.language_code || 'English/Auto'}\n\n--- TRANSCRIPT ---\n${data.transcript}`;
+            }
+            setContentText(formatted);
+            setTranscribeStatus(`✅ Transcribed (${data.language_code || 'detected'}) via Sarvam AI`);
+          } else {
+            setContentText(`[Audio Ingest: ${file.name} — No audible speech detected by Sarvam Saaras STT]`);
+            setTranscribeStatus('⚠️ No speech detected in audio file');
+          }
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          setContentText(`[Audio File: ${file.name} (${(file.size / 1024).toFixed(1)} KB)]\n(Manual transcription or notes can be entered below)`);
+          setTranscribeStatus(`⚠️ Transcription failed: ${errData.error || res.statusText}`);
+        }
+      } catch (err: any) {
+        console.error('Audio transcription error:', err);
+        setContentText(`[Audio File: ${file.name}]\n(Transcription connection issue, manual notes can be entered)`);
+        setTranscribeStatus('⚠️ Network error during Sarvam transcription');
+      } finally {
+        setIsTranscribing(false);
       }
-    },
-    [evidenceTitle]
-  );
+      return;
+    }
+
+    if (file.type.startsWith('image/')) setFileType('image');
+    else if (file.type.startsWith('video/')) setFileType('video');
+    else setFileType('text');
+
+    if (file.type.includes('text') || file.name.endsWith('.txt') || file.name.endsWith('.log') || file.name.endsWith('.json')) {
+      const reader = new FileReader();
+      reader.onload = (e) => setContentText(e.target?.result as string);
+      reader.readAsText(file);
+    } else {
+      setContentText(
+        `[Multimodal Ingest: ${file.name}]\nFormat: ${file.type || 'Binary'}\nSize: ${(file.size / 1024).toFixed(1)} KB\nExtracted forensic telemetry ready for Sarvam AI model analysis.`
+      );
+    }
+  }, [evidenceTitle]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -286,7 +327,7 @@ function AddNewCaseModalInner({ onClose, filingAgency }: AddNewCaseModalProps) {
                   <span className="underline text-blue-700">browse</span>
                 </p>
                 <p className="text-[10px] text-slate-500 font-bold mt-1">
-                  .txt · .pdf · .mp3 · .wav · .jpg · .png · .mp4 (up to 50 MB)
+                  .txt · .pdf · .mp3 · .wav · .jpg · .png · .mp4 (English &amp; Hindi Audio Supported)
                 </p>
               </div>
 
@@ -344,6 +385,23 @@ function AddNewCaseModalInner({ onClose, filingAgency }: AddNewCaseModalProps) {
                 </div>
               </div>
 
+              {/* Audio Transcription Status Banner */}
+              {(isTranscribing || transcribeStatus) && (
+                <div className={`p-2.5 border-2 border-black text-xs font-bold flex items-center justify-between gap-2 mb-4 ${
+                  isTranscribing ? 'bg-yellow-100 text-black animate-pulse' : 'bg-green-50 text-emerald-950'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <Volume2 className="w-4 h-4 shrink-0 text-black" />
+                    <span>{transcribeStatus}</span>
+                  </div>
+                  {isTranscribing && (
+                    <span className="text-[10px] bg-black text-white px-2 py-0.5 uppercase tracking-widest font-mono">
+                      SARVAM STT
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Content Text */}
               <div>
                 <label className="block text-[11px] font-black uppercase text-slate-700 mb-1.5">
@@ -385,11 +443,15 @@ function AddNewCaseModalInner({ onClose, filingAgency }: AddNewCaseModalProps) {
                   </button>
                   <button
                     type="submit"
-                    disabled={isProcessing || !caseName.trim()}
+                    disabled={isProcessing || isTranscribing || !caseName.trim()}
                     className="flex items-center gap-2 px-5 py-2 bg-[#F5C842] hover:bg-[#EAB308] disabled:opacity-50 text-black font-black text-xs border-2 border-black shadow-brutal transition active:translate-x-0.5 active:translate-y-0.5"
                   >
                     <Sparkles className="w-4 h-4" />
-                    {isProcessing ? 'Creating Case...' : 'Create Case & Extract Intel'}
+                    {isTranscribing
+                      ? 'Transcribing...'
+                      : isProcessing
+                      ? 'Creating Case...'
+                      : 'Create Case & Extract Intel'}
                   </button>
                 </div>
               </div>
