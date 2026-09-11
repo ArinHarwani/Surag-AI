@@ -1,7 +1,7 @@
 'use client';
 
-import { NexusShell } from '@/components/nexus/NexusShell';
+import { redirect } from 'next/navigation';
 
 export default function Home() {
-  return <NexusShell initialTab="overview" scopedAgency="all" />;
+  redirect('/jodhpur');
 }

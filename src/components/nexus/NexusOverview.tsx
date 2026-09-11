@@ -100,10 +100,52 @@ export const NexusOverview: React.FC<NexusOverviewProps> = ({
     }
   ];
 
+  // ── EMPTY STATE ─────────────────────────────────────────────────────────────
+  if (documents.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full min-h-[70vh] p-8 font-mono text-black">
+        <div className="w-full max-w-lg text-center space-y-6">
+          <div className="w-16 h-16 bg-black flex items-center justify-center mx-auto border-2 border-black shadow-brutal">
+            <FolderArchive className="w-8 h-8 text-[#F5C842]" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-black uppercase tracking-widest text-black">NO ACTIVE CASE</h2>
+            <p className="text-sm text-slate-600 font-bold mt-2 font-sans">
+              This terminal has no case data loaded. Click{' '}
+              <span className="font-black text-black">+ ADD NEW CASE</span> in the top-right to open a case and ingest your first evidence.
+            </p>
+          </div>
+          <div className="text-left space-y-3 border-2 border-black p-5 bg-[#FBF9F5] shadow-brutal">
+            <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 mb-3">HOW TO START:</p>
+            {[
+              { step: '01', label: 'Click "+ ADD NEW CASE" in the header' },
+              { step: '02', label: 'Enter case name, FIR number & filing agency' },
+              { step: '03', label: 'Attach text statement, audio intercept or image evidence' },
+              { step: '04', label: 'AI extracts entities, timeline events & contradictions automatically' },
+              { step: '05', label: 'Review Entity Graph, Timeline & Contradiction Centre' },
+            ].map(({ step, label }) => (
+              <div key={step} className="flex items-start gap-3">
+                <span className="bg-black text-[#F5C842] font-black text-[11px] px-2 py-0.5 shrink-0">{step}</span>
+                <span className="text-xs font-bold text-slate-700 font-sans">{label}</span>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={onOpenUpload}
+            className="w-full py-3 bg-[#F5C842] hover:bg-[#EAB308] text-black font-black text-sm border-2 border-black shadow-brutal flex items-center justify-center gap-2 transition active:translate-x-0.5 active:translate-y-0.5"
+          >
+            <FolderArchive className="w-5 h-5" />
+            + ADD NEW CASE
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 lg:p-6 space-y-6 font-mono select-none text-black">
       {/* ─────────────────────────────────────────────────────────────
-          SECTION 1: OVERVIEW OF CASE (Clean, Uncluttered Executive Strip)
+          SECTION 1: CASE COMMAND BANNER
       ───────────────────────────────────────────────────────────── */}
       <section className="space-y-4">
         {/* Command Title Banner */}
@@ -111,27 +153,27 @@ export const NexusOverview: React.FC<NexusOverviewProps> = ({
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="bg-[#E53E3E] text-white font-black text-[10px] px-2.5 py-0.5 uppercase tracking-wider">
-                LEVEL 4 CRISIS
+                ACTIVE CASE
               </span>
               <span className="text-[#F5C842] font-black text-xs uppercase tracking-wider">
                 DUAL JURISDICTION // JODHPUR COMMISSIONERATE ↔ KOTA SIU
               </span>
             </div>
             <h1 className="text-2xl lg:text-3xl font-black uppercase tracking-tight text-white">
-              CASE #16: OPERATION MARWAR SYNDICATE (AARAV SINGH)
+              {documents[0]?.title ? documents[0].title.toUpperCase() : 'ACTIVE INVESTIGATION'}
             </h1>
             <p className="text-xs text-slate-300 font-sans mt-1.5 max-w-3xl leading-relaxed">
-              Active cross-district contraband trafficking network operating between Jodhpur and Kota along NH-25/NH-27. Synchronized intelligence fusion and cryptographic audit active across both agency terminals.
+              {documents.length} evidence file{documents.length !== 1 ? 's' : ''} ingested across Jodhpur and Kota terminals.
+              Synchronized intelligence fusion and cryptographic audit active.
             </p>
           </div>
-
           <div className="flex items-center space-x-3 shrink-0">
             <button
               onClick={onOpenUpload}
               className="px-4 py-2.5 bg-[#F5C842] hover:bg-[#EAB308] text-black font-black text-xs border-2 border-black shadow-brutal flex items-center space-x-1.5 transition active:translate-x-0.5 active:translate-y-0.5"
             >
-              <UploadCloud className="w-4 h-4 text-black" />
-              <span>+ INGEST EVIDENCE</span>
+              <FolderArchive className="w-4 h-4 text-black" />
+              <span>+ ADD NEW CASE</span>
             </button>
             <button
               onClick={() => onSelectTab('dossier')}

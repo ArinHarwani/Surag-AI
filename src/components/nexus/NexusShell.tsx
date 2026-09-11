@@ -12,7 +12,7 @@ import { NexusTimelineMap } from './NexusTimelineMap';
 import { NexusDossier } from './NexusDossier';
 import { NexusAuthors } from './NexusAuthors';
 import { NexusProvenanceInspector } from './NexusProvenanceInspector';
-import { EvidenceDropzone } from '@/components/vault/EvidenceDropzone';
+import { AddNewCaseModal } from './AddNewCaseModal';
 
 interface NexusShellProps {
   initialTab?: NexusNavTab;
@@ -44,7 +44,7 @@ export const NexusShell: React.FC<NexusShellProps> = ({
     resetToDefaultCase,
   } = useInvestigation();
 
-  // If page scopes to an agency (e.g. /jodhpur or /kota)
+  // Lock active agency to portal's scoped agency on mount and when it changes
   React.useEffect(() => {
     if (scopedAgency && scopedAgency !== activeAgency) {
       setActiveAgency(scopedAgency);
@@ -70,12 +70,17 @@ export const NexusShell: React.FC<NexusShellProps> = ({
     ? documents.find((d) => d.id === provenanceFocus.documentId) || null
     : null;
 
+  // Default upload agency — use portal's agency, fallback to jodhpur
+  const defaultUploadAgency: 'jodhpur' | 'kota' =
+    scopedAgency === 'kota' ? 'kota' : 'jodhpur';
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#EFECE6] text-[#111111] font-mono selection:bg-[#F5C842] selection:text-black">
-      {/* 1. Full-Width Top Header: Expanded across the entire viewport */}
+      {/* 1. Full-Width Top Header */}
       <NexusHeader
         currentTab={currentTab}
         activeAgency={activeAgency}
+        scopedAgency={scopedAgency}
         onSelectAgency={setActiveAgency}
         onOpenUpload={() => setIsUploadOpen(true)}
         onResetCase={resetToDefaultCase}
@@ -86,10 +91,11 @@ export const NexusShell: React.FC<NexusShellProps> = ({
 
       {/* 2. Main Workspace Body: Sidebar on Left + Content Canvas on Right */}
       <div className="flex-1 flex flex-row min-h-0 w-full overflow-hidden">
-        {/* Adjusted Left Sidebar (Sits beneath expanded header) */}
+        {/* Left Sidebar */}
         <NexusSidebar
           currentTab={currentTab}
           onSelectTab={setCurrentTab}
+          scopedAgency={scopedAgency}
           stats={{
             documentsCount: documents.length,
             entitiesCount: entities.length,
@@ -166,25 +172,25 @@ export const NexusShell: React.FC<NexusShellProps> = ({
             />
           )}
         </main>
+
+        {/* 3. Provenance Inspector — inline right drawer (pushes content, no overlap) */}
+        {provenanceFocus && currentProvenanceDoc && (
+          <NexusProvenanceInspector
+            document={currentProvenanceDoc}
+            sourceOffset={provenanceFocus.sourceOffset}
+            snippet={provenanceFocus.snippet}
+            onClose={() => setProvenanceFocus(null)}
+          />
+        )}
       </div>
 
-      {/* 3. Universal Provenance Inspector Drawer */}
-      {provenanceFocus && currentProvenanceDoc && (
-        <NexusProvenanceInspector
-          document={currentProvenanceDoc}
-          sourceOffset={provenanceFocus.sourceOffset}
-          snippet={provenanceFocus.snippet}
-          onClose={() => setProvenanceFocus(null)}
-        />
-      )}
-
-      {/* 4. Evidence Ingestion Modal (Neo-brutalist Light Theme) */}
+      {/* 4. Add New Case Modal */}
       {isUploadOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="relative w-full max-w-2xl bg-white border-2 border-black shadow-brutal-lg p-0">
-            <EvidenceDropzone
+          <div className="relative w-full max-w-2xl bg-white border-2 border-black shadow-brutal-lg">
+            <AddNewCaseModal
               onClose={() => setIsUploadOpen(false)}
-              defaultAgencySlug={activeAgency === 'all' ? 'jodhpur' : activeAgency}
+              defaultAgencySlug={defaultUploadAgency}
             />
           </div>
         </div>

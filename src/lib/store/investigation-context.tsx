@@ -82,7 +82,7 @@ interface InvestigationContextType {
 
 const InvestigationContext = createContext<InvestigationContextType | null>(null);
 
-const STORAGE_KEY = 'surag_fusion_case_state_v7';
+const STORAGE_KEY = 'surag_fusion_case_state_v8';
 
 export function InvestigationProvider({ children }: { children: React.ReactNode }) {
   const [caseInfo] = useState<Case>(INITIAL_CASE);

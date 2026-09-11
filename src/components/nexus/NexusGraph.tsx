@@ -10,15 +10,11 @@ import {
   ExternalLink,
   Info,
   X,
-  TrendingUp,
   AlertTriangle,
   GitBranch,
-  Map,
   Network,
 } from 'lucide-react';
 import { NexusLinkGraph } from './NexusLinkGraph';
-import { NexusEntityLineGraph } from './NexusEntityLineGraph';
-import { NexusGeoGraphMap } from './NexusGeoGraphMap';
 import { formatTimeIST } from '@/lib/utils/formatDate';
 
 const TYPE_COLORS: Record<EntityType, string> = {
@@ -62,8 +58,7 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({
     resetToDefaultCase,
   } = useInvestigation();
 
-  // Primary Default View: Clean Tactical Suspects & Relations Link Graph
-  const [activeView, setActiveView] = useState<'link' | 'activity' | 'geo'>('link');
+  // Entity drawer & relationship modal state
   const [activeRelForModal, setActiveRelForModal] = useState<Relationship | null>(null);
   const [activeNodeForDrawer, setActiveNodeForDrawer] = useState<Entity | null>(null);
 
@@ -90,111 +85,40 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({
   return (
     <div className="relative w-full h-full flex flex-col bg-[#EFECE6] overflow-hidden font-mono select-none text-black">
       {/* ─────────────────────────────────────────────────────────────
-          TOP GRAPH MODE SWITCHER BAR
+          TOP BAR: Graph info
       ───────────────────────────────────────────────────────────── */}
       <div className="px-4 py-2.5 bg-white border-b-2 border-black flex flex-wrap items-center justify-between gap-3 shadow-xs">
-        <div className="flex items-center space-x-2">
-          <span className="text-xs font-black uppercase tracking-wider text-black flex items-center gap-1.5">
-            <GitBranch className="w-4 h-4 text-black" />
-            <span>INTELLIGENCE GRAPH MODE:</span>
+        <div className="flex items-center gap-2">
+          <GitBranch className="w-4 h-4 text-black" />
+          <span className="text-xs font-black uppercase tracking-wider text-black">
+            TACTICAL LINK GRAPH — CASE BOARD
           </span>
-
-          <div className="flex items-center bg-[#EFECE6] border-2 border-black p-0.5 shadow-brutal text-xs font-bold">
-            <button
-              onClick={() => setActiveView('link')}
-              className={`px-3 py-1 font-black flex items-center space-x-1.5 transition ${
-                activeView === 'link'
-                  ? 'bg-black text-[#F5C842]'
-                  : 'text-slate-700 hover:text-black hover:bg-white'
-              }`}
-              title="Clean Structured Line Graph connecting Suspects, Vehicles, Weapons and Sighting Locations"
-            >
-              <GitBranch className="w-3.5 h-3.5" />
-              <span>TACTICAL LINK GRAPH (CASE BOARD)</span>
-            </button>
-
-            <button
-              onClick={() => setActiveView('activity')}
-              className={`px-3 py-1 font-black flex items-center space-x-1.5 transition ${
-                activeView === 'activity'
-                  ? 'bg-black text-[#F5C842]'
-                  : 'text-slate-700 hover:text-black hover:bg-white'
-              }`}
-              title="Temporal Detection Intensity Curve over Time"
-            >
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>TIMELINE ACTIVITY LINE GRAPH</span>
-            </button>
-
-            <button
-              onClick={() => setActiveView('geo')}
-              className={`px-3 py-1 font-black flex items-center space-x-1.5 transition ${
-                activeView === 'geo'
-                  ? 'bg-black text-[#F5C842]'
-                  : 'text-slate-700 hover:text-black hover:bg-white'
-              }`}
-              title="OpenStreetMap Rajasthan Highway View"
-            >
-              <Map className="w-3.5 h-3.5" />
-              <span>GEOSPATIAL MAP</span>
-            </button>
-          </div>
         </div>
-
         <div className="text-[11px] font-bold text-slate-600 flex items-center gap-3">
           <span className="bg-[#FEF08A] text-black px-2 py-0.5 border border-black font-black">
-            11 TRACKED NODES
+            {entities.length} TRACKED NODES
           </span>
           <span className="bg-white text-black px-2 py-0.5 border border-black font-black">
-            10 RELATIONS
+            {relationships.length} RELATIONS
           </span>
         </div>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          MAIN GRAPH BODY
+          MAIN GRAPH BODY — Only Tactical Link Graph
       ───────────────────────────────────────────────────────────── */}
       <div className="w-full flex-1 overflow-y-auto relative">
-        {/* VIEW 1: Tactical Link Graph (Default Clean Line Graph) */}
-        {activeView === 'link' && (
-          <div className="p-4 w-full h-full">
-            <NexusLinkGraph
-              entities={entities}
-              relationships={relationships}
-              contradictions={contradictions}
-              agencies={agencies}
-              onSelectEntity={(e) => setActiveNodeForDrawer(e)}
-              onSelectRelationship={(r) => setActiveRelForModal(r)}
-              onOpenProvenance={onOpenProvenance}
-            />
-          </div>
-        )}
-
-        {/* VIEW 2: Harshit's Timeline Activity Line Graph */}
-        {activeView === 'activity' && (
-          <div className="w-full h-full">
-            <NexusEntityLineGraph
-              entities={entities}
-              events={events}
-              contradictions={contradictions}
-              onSelectEntity={(e) => setActiveNodeForDrawer(e)}
-              onOpenProvenance={onOpenProvenance}
-            />
-          </div>
-        )}
-
-        {/* VIEW 3: Geospatial Map View */}
-        {activeView === 'geo' && (
-          <div className="w-full h-[640px] relative">
-            <NexusGeoGraphMap
-              entities={entities}
-              relationships={relationships}
-              onSelectEntity={(e) => setActiveNodeForDrawer(e)}
-              onSelectRelationship={(r) => setActiveRelForModal(r)}
-              selectedEntityId={activeNodeForDrawer?.id}
-            />
-          </div>
-        )}
+        <div className="p-4 w-full h-full">
+          <NexusLinkGraph
+            entities={entities}
+            relationships={relationships}
+            contradictions={contradictions}
+            agencies={agencies}
+            onSelectEntity={(e) => setActiveNodeForDrawer(e)}
+            onSelectRelationship={(r) => setActiveRelForModal(r)}
+            onOpenProvenance={onOpenProvenance}
+          />
+        </div>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────

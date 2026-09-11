@@ -1,7 +1,7 @@
 'use client';
 
-import { KotaTerminal } from '@/components/portals/KotaTerminal';
+import { NexusShell } from '@/components/nexus/NexusShell';
 
 export default function KotaPage() {
-  return <KotaTerminal />;
+  return <NexusShell initialTab="overview" scopedAgency="kota" />;
 }

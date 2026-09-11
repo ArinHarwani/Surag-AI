@@ -57,7 +57,7 @@ export const NexusProvenanceInspector: React.FC<ProvenanceInspectorProps> = ({
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 w-full max-w-lg bg-white border-l-2 border-black shadow-brutal-lg z-50 flex flex-col font-mono text-black select-none">
+    <div className="w-[420px] shrink-0 bg-white border-l-2 border-black shadow-brutal-lg flex flex-col font-mono text-black select-none h-full overflow-hidden">
       {/* Top Header */}
       <div className="flex items-center justify-between px-5 py-3.5 border-b-2 border-black bg-[#EFECE6]">
         <div className="flex items-center space-x-2.5">
