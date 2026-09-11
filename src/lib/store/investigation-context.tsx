@@ -495,20 +495,34 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
 
         const allEntities = [...baseEntities, ...newEntityRecords];
 
-        const newEventRecords: Event[] = extraction.events.map((raw, idx) => ({
-          id: crypto.randomUUID(),
-          case_id: caseId,
-          document_id: docId,
-          description: raw.description,
-          event_timestamp: raw.event_timestamp,
-          event_timestamp_confidence: raw.event_timestamp_confidence,
-          location_text: raw.location_text,
-          lat: raw.lat,
-          lng: raw.lng,
-          source_offset: raw.source_offset,
-          confidence: raw.confidence,
-          created_at: new Date().toISOString(),
-        }));
+        const newEventRecords: Event[] = extraction.events.map((raw, idx) => {
+          // Bug Fix #2: Use a DETERMINISTIC ID keyed on case+doc+description+timestamp
+          // so that re-uploading the same document produces identical IDs and Postgres
+          // upsert deduplicates them instead of inserting duplicates.
+          const deterministicSeed = `${caseId}|${docId}|${raw.description}|${raw.event_timestamp}`;
+          let deterministicId = '';
+          for (let i = 0; i < deterministicSeed.length; i++) {
+            deterministicId += deterministicSeed.charCodeAt(i).toString(16);
+          }
+          // Pad/trim to a UUID-like 36-char format
+          const hex = deterministicId.replace(/[^a-f0-9]/gi, '').toLowerCase().padEnd(32, '0').slice(0, 32);
+          const eventId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`;
+
+          return {
+            id: eventId,
+            case_id: caseId,
+            document_id: docId,
+            description: raw.description,
+            event_timestamp: raw.event_timestamp,
+            event_timestamp_confidence: raw.event_timestamp_confidence,
+            location_text: raw.location_text,
+            lat: raw.lat,
+            lng: raw.lng,
+            source_offset: raw.source_offset,
+            confidence: raw.confidence,
+            created_at: new Date().toISOString(),
+          };
+        });
 
         // Only accumulate events that belong to the current case
         const allEvents = [
@@ -572,7 +586,13 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         );
         // If the optimistic doc isn't in state yet somehow, add it
         const docAlreadyIn = finalDocs.some((d) => d.id === docId);
-        const processedDoc = { ...newDoc, status: 'processed' as const };
+        // Bug Fix #2 & #3: If extraction produced nothing, mark doc as 'failed'
+        // so the UI shows a red badge instead of silently inserting junk data.
+        const extractionSucceeded = newEntityRecords.length > 0 || newEventRecords.length > 0;
+        const processedDoc: Document = {
+          ...newDoc,
+          status: extractionSucceeded ? ('processed' as const) : ('failed' as const),
+        };
         const updatedDocs = docAlreadyIn
           ? finalDocs
           : [processedDoc, ...finalDocs];
@@ -610,46 +630,10 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
           }),
         }).catch((e) => console.warn('Sync API ingest err:', e));
 
-        if (supabase) {
-          (async () => {
-            try {
-              if (prev.activeCaseId !== caseId) {
-                await supabase.from('cases').upsert({
-                  id: caseId,
-                  name: caseName,
-                });
-              }
-
-              await supabase.from('documents').upsert({
-                id: processedDoc.id,
-                case_id: processedDoc.case_id,
-                agency_id: processedDoc.agency_id,
-                uploaded_by: processedDoc.uploaded_by,
-                title: processedDoc.title,
-                file_type: processedDoc.file_type,
-                content_text: processedDoc.content_text,
-                storage_path: processedDoc.media_url,
-                status: processedDoc.status,
-                uploaded_at: processedDoc.uploaded_at,
-              });
-
-              if (newEntityRecords.length > 0) {
-                await supabase.from('entities').upsert(newEntityRecords);
-              }
-              if (newEventRecords.length > 0) {
-                await supabase.from('events').upsert(newEventRecords);
-              }
-              if (newRelationshipRecords.length > 0) {
-                await supabase.from('relationships').upsert(newRelationshipRecords);
-              }
-              if (newContradictionRecords.length > 0) {
-                await supabase.from('contradictions').upsert(newContradictionRecords);
-              }
-            } catch (err) {
-              console.warn('Direct client Supabase ingest caught:', err);
-            }
-          })();
-        }
+        // ── Single source of truth: server sync API (service role, bypasses RLS)
+        // Bug Fix #2: REMOVED the parallel direct client-side supabase.from('events').upsert()
+        // write path that was causing every event to be inserted twice.
+        // The server sync API (below) is now the ONLY path that writes to Supabase.
 
         realtimeRelay.publish('DOCUMENT_INGESTED', {
           document: processedDoc,

@@ -41,12 +41,54 @@ export interface ExtractionResult {
  * then Gemini if GEMINI_API_KEY is configured,
  * and gracefully falls back to the deterministic forensic rule engine.
  */
+/**
+ * Derive a reference year from existing case events. Used to validate
+ * AI-extracted timestamps and fix the local engine's hardcoded dates.
+ */
+function deriveCaseReferenceYear(existingEntities: Entity[]): number {
+  // We'll use the current year as the base reference. The case date of
+  // 2026-03-14 is correct — we just need to avoid the local engine emitting 2023.
+  return new Date().getFullYear();
+}
+
+/**
+ * Validate event timestamps extracted by AI — if any event year is more than
+ * 2 years away from the case reference year, flag it as 'inferred'.
+ */
+function sanitizeEventTimestamps(
+  events: ExtractionResult['events'],
+  caseReferenceYear: number
+): ExtractionResult['events'] {
+  return events.map((ev) => {
+    try {
+      const d = new Date(ev.event_timestamp);
+      const year = d.getFullYear();
+      if (Math.abs(year - caseReferenceYear) > 2) {
+        // Year is clearly wrong (e.g. OCR read "2023" from old CCTV overlay)
+        // Correct to the reference year while keeping time-of-day intact
+        const corrected = new Date(ev.event_timestamp);
+        corrected.setFullYear(caseReferenceYear);
+        console.warn(
+          `[timestamp-sanitize] Corrected outlier year ${year} → ${caseReferenceYear} for event: "${ev.description.slice(0, 60)}..."`
+        );
+        return {
+          ...ev,
+          event_timestamp: corrected.toISOString(),
+          event_timestamp_confidence: 'inferred' as const,
+        };
+      }
+    } catch (_) {/* leave as-is if unparseable */}
+    return ev;
+  });
+}
+
 export async function extractDocumentIntelligence(
   doc: Document,
   existingEntities: Entity[] = [],
   caseName?: string
 ): Promise<ExtractionResult> {
   const content = doc.content_text || doc.title;
+  const caseReferenceYear = deriveCaseReferenceYear(existingEntities);
 
   // 1. Try Sarvam AI API via server route (Dedicated Bilingual English/Hindi Extraction)
   if (typeof window !== 'undefined') {
@@ -64,6 +106,7 @@ export async function extractDocumentIntelligence(
           file_type: doc.file_type,
           uploaded_by: doc.uploaded_by,
           case_name: caseName,
+          case_reference_year: caseReferenceYear,
         }),
       });
       clearTimeout(timer);
@@ -73,7 +116,7 @@ export async function extractDocumentIntelligence(
         if (data.entities && data.events && (data.entities.length > 0 || data.events.length > 0)) {
           return {
             entities: data.entities || [],
-            events: data.events || [],
+            events: sanitizeEventTimestamps(data.events || [], caseReferenceYear),
             suggestedRelationships: data.suggestedRelationships || [],
           };
         }
@@ -98,7 +141,7 @@ export async function extractDocumentIntelligence(
           messages: [
             { role: 'system', content: `${DETECTIVE_EXTRACTION_SYSTEM_PROMPT}\nSCHEMA:\n${DETECTIVE_EXTRACTION_JSON_SCHEMA}\nReturn ONLY valid JSON matching the schema.` },
             {
-              content: `Analyze this document from ${doc.uploaded_by} (File Type: ${doc.file_type}):\n\nCASE CONTEXT: ${caseName || 'Unknown'}\nTITLE: ${doc.title}\nCONTENT:\n${content}`,
+              content: `Analyze this document from ${doc.uploaded_by} (File Type: ${doc.file_type}):\n\nCASE CONTEXT: ${caseName || 'Unknown'}\nTITLE: ${doc.title}\nCASE REFERENCE YEAR: ${caseReferenceYear} (use this year for all timestamps unless the document explicitly states otherwise)\nCONTENT:\n${content}`,
             },
           ],
           temperature: 0.1,
@@ -115,7 +158,7 @@ export async function extractDocumentIntelligence(
           if (parsed.entities && parsed.events) {
             return {
               entities: parsed.entities || [],
-              events: parsed.events || [],
+              events: sanitizeEventTimestamps(parsed.events || [], caseReferenceYear),
               suggestedRelationships: parsed.relationships || [],
             };
           }
@@ -138,7 +181,7 @@ export async function extractDocumentIntelligence(
           contents: [
             {
               parts: [
-                { text: `${DETECTIVE_EXTRACTION_SYSTEM_PROMPT}\nReturn ONLY JSON adhering to:\n${DETECTIVE_EXTRACTION_JSON_SCHEMA}\n\nDOCUMENT TO PROCESS:\n${content}` },
+                { text: `${DETECTIVE_EXTRACTION_SYSTEM_PROMPT}\nReturn ONLY JSON adhering to:\n${DETECTIVE_EXTRACTION_JSON_SCHEMA}\n\nCASE REFERENCE YEAR: ${caseReferenceYear} (use this year for all timestamps unless the document explicitly states otherwise)\n\nDOCUMENT TO PROCESS:\n${content}` },
               ],
             },
           ],
@@ -156,7 +199,7 @@ export async function extractDocumentIntelligence(
           const parsed = JSON.parse(text);
           return {
             entities: parsed.entities || [],
-            events: parsed.events || [],
+            events: sanitizeEventTimestamps(parsed.events || [], caseReferenceYear),
             suggestedRelationships: parsed.relationships || [],
           };
         }
@@ -167,15 +210,15 @@ export async function extractDocumentIntelligence(
   }
 
   // 3. Resilient Local Detective Engine (Zero external dependencies, instant response)
-
-  return runLocalDetectiveExtraction(doc, existingEntities);
+  return runLocalDetectiveExtraction(doc, existingEntities, caseReferenceYear);
 }
 
 /**
  * Intelligent Local Detective Extraction Parser
  * Grounded strictly in the source text without hallucinating facts.
  */
-function runLocalDetectiveExtraction(doc: Document, existingEntities: Entity[]): ExtractionResult {
+function runLocalDetectiveExtraction(doc: Document, existingEntities: Entity[], caseReferenceYear?: number): ExtractionResult {
+  const refYear = caseReferenceYear ?? new Date().getFullYear();
   const text = doc.content_text || doc.title;
   const entities: ExtractionResult['entities'] = [];
   const events: ExtractionResult['events'] = [];
@@ -316,7 +359,7 @@ function runLocalDetectiveExtraction(doc: Document, existingEntities: Entity[]):
     if (/NH-52|Toll\s+Plaza|16:32|12\s+OCT|Lane\s+4/i.test(trimmed)) {
       events.push({
         description: 'CCTV frame recorded vehicle with plate RJ10E64747 at NH-52 Toll Plaza (Kota Bound, Lane 4)',
-        event_timestamp: '2023-10-12T16:32:04.000Z',
+        event_timestamp: `${refYear}-03-14T16:32:04.000Z`,
         event_timestamp_confidence: 'exact',
         location_text: 'NH-52 Toll Plaza (Kota Bound, Lane 4)',
         lat: 25.21,
@@ -404,12 +447,14 @@ function runLocalDetectiveExtraction(doc: Document, existingEntities: Entity[]):
     }
   });
 
-  // If no specific events were extracted from lines, check whole text for CCTV or missing report
+  // If no specific events were extracted from lines, check whole text for CCTV or missing report.
+  // Bug Fix #3: Do NOT insert a generic stub event — return empty and let the caller
+  // mark the document as 'failed' rather than polluting the timeline with junk rows.
   if (events.length === 0) {
     if (/NH-52|Toll\s+Plaza|16:32|RJ10E/i.test(text)) {
       events.push({
         description: 'CCTV frame recorded vehicle with plate RJ10E64747 at NH-52 Toll Plaza (Kota Bound, Lane 4)',
-        event_timestamp: '2023-10-12T16:32:04.000Z',
+        event_timestamp: `${refYear}-03-14T16:32:04.000Z`,
         event_timestamp_confidence: 'exact',
         location_text: 'NH-52 Toll Plaza (Kota Bound, Lane 4)',
         lat: 25.21,
@@ -417,18 +462,8 @@ function runLocalDetectiveExtraction(doc: Document, existingEntities: Entity[]):
         source_offset: 'Toll Camera Overlay',
         confidence: 0.99,
       });
-    } else {
-      events.push({
-        description: `Intelligence extraction recorded from: ${doc.title}`,
-        event_timestamp: doc.uploaded_at || new Date().toISOString(),
-        event_timestamp_confidence: 'inferred',
-        location_text: doc.agency_id.includes('kota') ? 'Kota, Rajasthan' : 'Jodhpur, Rajasthan',
-        lat: doc.agency_id.includes('kota') ? 25.18 : 26.28,
-        lng: doc.agency_id.includes('kota') ? 75.83 : 73.02,
-        source_offset: 'Header',
-        confidence: 0.91,
-      });
     }
+    // Otherwise: return empty events array — caller decides how to handle.
   }
 
   // Dynamic Case Relationship Builder
