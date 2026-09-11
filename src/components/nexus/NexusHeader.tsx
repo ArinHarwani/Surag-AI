@@ -57,10 +57,10 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
           <div>
             <div className="flex items-center space-x-2">
               <span className="text-xs font-black tracking-wider text-black uppercase">
-                NEXUS INTEL FUSION
+                SURAG-AI
               </span>
               <span className="text-[10px] bg-black text-[#F5C842] font-black px-1.5 py-0.5 rounded">
-                SURAG-AI
+                INTELLIGENCE FUSION
               </span>
             </div>
             <p className="text-[10px] text-slate-700 font-bold uppercase tracking-tight">

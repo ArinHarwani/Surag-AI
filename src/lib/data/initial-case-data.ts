@@ -21,7 +21,7 @@ export const AGENCIES: Record<string, Agency> = {
 
 export const INITIAL_CASE: Case = {
   id: CASE_ID,
-  name: 'OPERATION MARWAR: SYNDICATE NEXUS (AARAV SINGH)',
+  name: 'OPERATION MARWAR: SYNDICATE NETWORK (AARAV SINGH)',
   created_at: '2026-09-10T18:00:00Z',
 };
 

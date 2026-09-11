@@ -19,7 +19,7 @@ import {
   ChevronRight,
   Info,
   X,
-  Map,
+  TrendingUp,
   Network,
   Sliders,
   AlertTriangle,
@@ -32,7 +32,7 @@ import {
   Building,
   Box
 } from 'lucide-react';
-import { NexusGeoGraphMap } from './NexusGeoGraphMap';
+import { NexusEntityLineGraph } from './NexusEntityLineGraph';
 
 // Dynamic import with SSR disabled because react-force-graph uses window & canvas
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
@@ -92,7 +92,7 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({
   } = useInvestigation();
 
   // Primary Default View MUST BE Relationship Graph (PRD Section 1 & 4.4)
-  const [viewMode, setViewMode] = useState<'graph' | 'geo'>('graph');
+  const [viewMode, setViewMode] = useState<'network' | 'line'>('network');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0); // 0% to 100%
@@ -493,31 +493,31 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({
           />
         </div>
 
-        {/* Right: View Mode Toggle [ RELATIONSHIP GRAPH (Default) ] [ GEOSPATIAL MAP ] (PRD 4.4) */}
+        {/* Right: View Mode Toggle [ RELATIONSHIP NETWORK (Default) ] [ TEMPORAL LINE GRAPH ] */}
         <div className="flex items-center space-x-2 pointer-events-auto">
           <div className="flex items-center bg-white border-2 border-black p-0.5 shadow-brutal text-xs font-bold">
             <button
-              onClick={() => setViewMode('graph')}
+              onClick={() => setViewMode('network')}
               className={`px-3 py-1 font-black flex items-center space-x-1.5 transition ${
-                viewMode === 'graph'
+                viewMode === 'network'
                   ? 'bg-black text-[#F5C842]'
                   : 'text-slate-700 hover:text-black hover:bg-slate-100'
               }`}
             >
               <Network className="w-3.5 h-3.5" />
-              <span>RELATIONSHIP GRAPH</span>
+              <span>RELATIONSHIP NETWORK</span>
             </button>
 
             <button
-              onClick={() => setViewMode('geo')}
+              onClick={() => setViewMode('line')}
               className={`px-3 py-1 font-black flex items-center space-x-1.5 transition ${
-                viewMode === 'geo'
+                viewMode === 'line'
                   ? 'bg-black text-[#F5C842]'
                   : 'text-slate-700 hover:text-black hover:bg-slate-100'
               }`}
             >
-              <Map className="w-3.5 h-3.5" />
-              <span>GEOSPATIAL MAP</span>
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>TEMPORAL LINE GRAPH</span>
             </button>
           </div>
 
@@ -536,7 +536,7 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({
       ───────────────────────────────────────────────────────────── */}
       <div className="w-full h-full flex-1 flex flex-col pt-16 relative">
         {/* VIEW 1: Force-Directed Relationship Graph (P0 Flagship View) */}
-        {viewMode === 'graph' && (
+        {viewMode === 'network' && (
           <div
             className="w-full h-full flex-1 relative"
             onClick={(e) => {
@@ -633,16 +633,15 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({
           </div>
         )}
 
-        {/* VIEW 2: Geospatial Map Overlay (PRD 4.4) */}
-        {viewMode === 'geo' && (
+        {/* VIEW 2: Temporal Activity Line Graph */}
+        {viewMode === 'line' && (
           <div className="w-full h-full flex-1 relative">
-            <NexusGeoGraphMap
-              entities={graphData.rawEntities}
-              relationships={graphData.rawRelationships}
+            <NexusEntityLineGraph
+              entities={entities}
+              events={events}
+              contradictions={contradictions}
               onSelectEntity={(e) => setActiveNodeForDrawer(e)}
-              onSelectRelationship={(r) => setActiveRelForModal(r)}
-              selectedEntityId={activeNodeForDrawer?.id}
-              searchQuery={searchQuery}
+              onOpenProvenance={onOpenProvenance}
             />
           </div>
         )}

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'NEXUS Intel Fusion — Collaborative Investigative Intelligence Platform',
+  title: 'SURAG-AI — Collaborative Investigative Intelligence Platform',
   description:
     'From Fragmented Signals to an Explainable Intelligence Picture. Classified Joint Operational Fusion Command for Jodhpur and Kota Police forces.',
 };

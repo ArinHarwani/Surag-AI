@@ -120,7 +120,7 @@ export const NexusOverview: React.FC<NexusOverviewProps> = ({
               CASE #16: OPERATION MARWAR SYNDICATE (AARAV SINGH)
             </h1>
             <p className="text-xs text-slate-300 font-sans mt-1.5 max-w-3xl leading-relaxed">
-              Active cross-district contraband trafficking nexus operating between Jodhpur and Kota along NH-25/NH-27. Synchronized intelligence fusion and cryptographic audit active across both agency terminals.
+              Active cross-district contraband trafficking network operating between Jodhpur and Kota along NH-25/NH-27. Synchronized intelligence fusion and cryptographic audit active across both agency terminals.
             </p>
           </div>
 
@@ -329,7 +329,7 @@ export const NexusOverview: React.FC<NexusOverviewProps> = ({
             onClick={() => onSelectTab('graph')}
             className="px-3.5 py-1.5 bg-black text-[#F5C842] hover:bg-slate-900 font-black text-xs border border-black shadow-brutal flex items-center space-x-1 self-start sm:self-auto"
           >
-            <span>OPEN FULL GRAPH &amp; OPENSTREETMAP</span>
+            <span>OPEN FULL ENTITY GRAPH</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>

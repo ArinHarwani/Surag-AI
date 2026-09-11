@@ -324,7 +324,7 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
                 <div className="border-b border-black pb-2">
                   <div className="flex items-center justify-between text-[10px] font-black uppercase text-red-600">
                     <span>● AI KNOWLEDGE EXTRACTION</span>
-                    <span>MODEL: NEXUS-NLP-V4</span>
+                    <span>MODEL: SURAG-NLP-V4</span>
                   </div>
                   <h4 className="text-sm font-black uppercase text-black mt-0.5">
                     EXTRACTED ENTITIES &amp; EVENTS
