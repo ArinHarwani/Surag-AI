@@ -2,13 +2,13 @@
 
 import React, { useState } from 'react';
 import { Entity, Event, Contradiction } from '@/types/investigation';
-import { 
-  TrendingUp, 
-  AlertTriangle, 
-  Clock, 
-  Calendar, 
-  Activity, 
-  ChevronRight, 
+import {
+  TrendingUp,
+  AlertTriangle,
+  Clock,
+  Calendar,
+  Activity,
+  ChevronRight,
   ExternalLink,
   ShieldAlert,
   Sparkles
@@ -137,11 +137,11 @@ const TIMELINE_POINTS: DataPoint[] = [
 ];
 
 const SERIES_CONFIG = [
-  { key: 'aarav', label: 'Aarav Singh (Person)', entityId: 'ent-aarav-singh', color: '#10B981', type: 'person' },
-  { key: 'scorpio', label: 'White Scorpio (Vehicle)', entityId: 'ent-scorpio-white', color: '#F59E0B', type: 'vehicle' },
-  { key: 'bolero', label: 'Silver Bolero (Vehicle)', entityId: 'ent-bolero-silver', color: '#EF4444', type: 'vehicle' },
-  { key: 'devendra', label: 'Devendra Sharma (Person)', entityId: 'ent-devendra-sharma', color: '#0284C7', type: 'person' },
-  { key: 'glock', label: 'Glock 19 Sidearm (Weapon)', entityId: 'ent-glock-pistol', color: '#8B5CF6', type: 'weapon' },
+  { key: 'aarav', label: 'Aarav Singh (Person)', color: '#10B981', type: 'person' },
+  { key: 'scorpio', label: 'White Scorpio (Vehicle)', color: '#F59E0B', type: 'vehicle' },
+  { key: 'bolero', label: 'Silver Bolero (Vehicle)', color: '#EF4444', type: 'vehicle' },
+  { key: 'devendra', label: 'Devendra Sharma (Person)', color: '#0284C7', type: 'person' },
+  { key: 'glock', label: 'Glock 19 Sidearm (Weapon)', color: '#8B5CF6', type: 'weapon' },
 ];
 
 export const NexusEntityLineGraph: React.FC<NexusEntityLineGraphProps> = ({
@@ -264,39 +264,25 @@ export const NexusEntityLineGraph: React.FC<NexusEntityLineGraphProps> = ({
             </p>
           </div>
 
-          {/* Series Toggle Buttons & Dossier Triggers */}
+          {/* Series Toggle Buttons */}
           <div className="flex flex-wrap items-center gap-1.5">
             {SERIES_CONFIG.map((s) => {
               const active = activeSeries[s.key];
               return (
-                <div key={s.key} className="flex items-center">
-                  <button
-                    onClick={() => toggleSeries(s.key)}
-                    className={`px-2.5 py-1 text-xs font-black border transition flex items-center space-x-1.5 ${
-                      active
-                        ? 'bg-[#FBF9F5] border-black text-black shadow-xs'
-                        : 'bg-white border-slate-300 text-slate-400 line-through'
+                <button
+                  key={s.key}
+                  onClick={() => toggleSeries(s.key)}
+                  className={`px-2.5 py-1 text-xs font-black border transition flex items-center space-x-1.5 ${active
+                      ? 'bg-[#FBF9F5] border-black text-black shadow-xs'
+                      : 'bg-white border-slate-300 text-slate-400 line-through'
                     }`}
-                  >
-                    <span
-                      className="w-2.5 h-2.5 rounded-full border border-black"
-                      style={{ backgroundColor: s.color }}
-                    />
-                    <span>{s.label.split(' ')[0]}</span>
-                  </button>
-                  {onSelectEntity && (
-                    <button
-                      onClick={() => {
-                        const ent = entities.find((e) => e.id === s.entityId);
-                        if (ent) onSelectEntity(ent);
-                      }}
-                      title={`Open ${s.label} dossier`}
-                      className="px-1.5 py-1 text-[9px] font-black border-y border-r border-black bg-white hover:bg-[#F5C842] text-black transition"
-                    >
-                      DOSSIER
-                    </button>
-                  )}
-                </div>
+                >
+                  <span
+                    className="w-2.5 h-2.5 rounded-full border border-black"
+                    style={{ backgroundColor: s.color }}
+                  />
+                  <span>{s.label.split(' ')[0]}</span>
+                </button>
               );
             })}
           </div>
@@ -452,10 +438,6 @@ export const NexusEntityLineGraph: React.FC<NexusEntityLineGraphProps> = ({
                         stroke={s.color}
                         strokeWidth="3"
                         className="cursor-pointer transition-all hover:r-8"
-                        onClick={() => {
-                          const ent = entities.find((e) => e.id === s.entityId);
-                          if (ent && onSelectEntity) onSelectEntity(ent);
-                        }}
                         onMouseEnter={() => {
                           setHoveredPoint(pt);
                           setHoveredSeriesKey(s.key);
@@ -531,9 +513,8 @@ export const NexusEntityLineGraph: React.FC<NexusEntityLineGraphProps> = ({
             <div
               key={p.timeLabel}
               onMouseEnter={() => setHoveredPoint(p)}
-              className={`p-2.5 border-2 border-black cursor-pointer transition hover:bg-white ${
-                p.isAnomaly ? 'bg-red-50 border-red-600' : 'bg-[#FBF9F5]'
-              }`}
+              className={`p-2.5 border-2 border-black cursor-pointer transition hover:bg-white ${p.isAnomaly ? 'bg-red-50 border-red-600' : 'bg-[#FBF9F5]'
+                }`}
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-black px-1.5 py-0.5 bg-black text-[#F5C842]">
