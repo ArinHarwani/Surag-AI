@@ -71,35 +71,35 @@ export const NexusShell: React.FC<NexusShellProps> = ({
     : null;
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#EFECE6] text-[#111111] font-mono selection:bg-[#F5C842] selection:text-black">
-      {/* 1. Fixed Left Sidebar */}
-      <NexusSidebar
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#EFECE6] text-[#111111] font-mono selection:bg-[#F5C842] selection:text-black">
+      {/* 1. Full-Width Top Header: Expanded across the entire viewport */}
+      <NexusHeader
         currentTab={currentTab}
+        activeAgency={activeAgency}
+        onSelectAgency={setActiveAgency}
+        onOpenUpload={() => setIsUploadOpen(true)}
+        onResetCase={resetToDefaultCase}
         onSelectTab={setCurrentTab}
-        stats={{
-          documentsCount: documents.length,
-          entitiesCount: entities.length,
-          flaggedContradictionsCount: flaggedCount,
-          suggestedCount: suggestedCount,
-        }}
+        isProcessing={isProcessing}
+        processingText={processingStatusText}
       />
 
-      {/* 2. Main Center Body */}
-      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
-        {/* Top Header */}
-        <NexusHeader
+      {/* 2. Main Workspace Body: Sidebar on Left + Content Canvas on Right */}
+      <div className="flex-1 flex flex-row min-h-0 w-full overflow-hidden">
+        {/* Adjusted Left Sidebar (Sits beneath expanded header) */}
+        <NexusSidebar
           currentTab={currentTab}
-          activeAgency={activeAgency}
-          onSelectAgency={setActiveAgency}
-          onOpenUpload={() => setIsUploadOpen(true)}
-          onResetCase={resetToDefaultCase}
           onSelectTab={setCurrentTab}
-          isProcessing={isProcessing}
-          processingText={processingStatusText}
+          stats={{
+            documentsCount: documents.length,
+            entitiesCount: entities.length,
+            flaggedContradictionsCount: flaggedCount,
+            suggestedCount: suggestedCount,
+          }}
         />
 
         {/* Dynamic Canvas Workspace */}
-        <main className="flex-1 overflow-y-auto bg-[#EFECE6] relative">
+        <main className="flex-1 min-w-0 h-full overflow-y-auto bg-[#EFECE6] relative">
           {currentTab === 'overview' && (
             <NexusOverview
               documents={documents}

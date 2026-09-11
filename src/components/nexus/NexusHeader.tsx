@@ -47,24 +47,24 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
   ];
 
   return (
-    <header className="bg-[#EFECE6] border-b-2 border-black text-black px-4 py-2 sticky top-0 z-20 select-none font-mono">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {/* Left: Brand / Operation Title (Matches reference top bar) */}
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded bg-black text-[#F5C842] flex items-center justify-center font-black shadow-brutal text-sm">
+    <header className="bg-[#EFECE6] border-b-2 border-black text-black px-5 py-2.5 sticky top-0 z-30 select-none font-mono w-full shadow-xs shrink-0">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Left: Brand / Platform Title (Expanded across full viewport) */}
+        <div className="flex items-center space-x-3.5">
+          <div className="w-9 h-9 rounded bg-black text-[#F5C842] flex items-center justify-center font-black shadow-brutal text-sm border-2 border-black">
             <Shield className="w-5 h-5 text-[#F5C842]" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="text-xs font-black tracking-wider text-black uppercase">
+              <span className="text-sm font-black tracking-wider text-black uppercase">
                 SURAG-AI
               </span>
-              <span className="text-[10px] bg-black text-[#F5C842] font-black px-1.5 py-0.5 rounded">
+              <span className="text-[10px] bg-black text-[#F5C842] font-black px-2 py-0.5 rounded border border-black shadow-xs">
                 INTELLIGENCE FUSION
               </span>
             </div>
             <p className="text-[10px] text-slate-700 font-bold uppercase tracking-tight">
-              OP: MARWAR // PS #16 // DUAL-CUSTODY ACTIVE
+              COLLABORATIVE MULTI-AGENCY PLATFORM // DUAL CUSTODY ACTIVE
             </p>
           </div>
         </div>

@@ -2,18 +2,12 @@
 
 import React from 'react';
 import { 
-  Shield, 
   LayoutGrid, 
   FolderArchive, 
   Network, 
   AlertOctagon, 
   Clock, 
   FileText, 
-  Lock, 
-  Activity, 
-  Radio,
-  CheckCircle2,
-  Database,
   UserCheck
 } from 'lucide-react';
 
@@ -89,27 +83,18 @@ export const NexusSidebar: React.FC<NexusSidebarProps> = ({
   ];
 
   return (
-    <aside className="w-64 bg-[#EAE6DD] border-r-2 border-black flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none z-30 font-mono text-black">
-      {/* Top: Operation Header Block (Matches reference screenshot box) */}
-      <div className="p-3.5 space-y-3">
-        <div className="border border-black bg-white p-3 shadow-brutal space-y-1">
-          <div className="text-[10px] text-slate-600 font-bold uppercase tracking-wider">
-            OPERATION
-          </div>
-          <div className="text-sm font-black uppercase text-black tracking-tight leading-none">
-            MARWAR SYNDICATE
-          </div>
-          <div className="text-[10px] text-red-600 font-black uppercase pt-1">
-            DESK AUDIT: <span className="underline">ACTIVE</span>
-          </div>
+    <aside className="w-60 bg-[#EAE6DD] border-r-2 border-black flex flex-col justify-between shrink-0 h-full select-none z-10 font-mono text-black overflow-y-auto">
+      {/* Navigation Desk Section */}
+      <div className="p-3 space-y-2">
+        <div className="text-[10px] font-black uppercase tracking-widest text-slate-600 px-2 py-1.5 border-b border-black/15 flex items-center justify-between">
+          <span>INVESTIGATION DESK</span>
+          <span className="text-[9px] bg-black text-[#F5C842] px-1.5 py-0.5 font-black border border-black">
+            TERMINAL
+          </span>
         </div>
 
-        <div className="text-[10px] font-black uppercase tracking-widest text-slate-600 px-1 pt-1">
-          JOINT TERMINAL ACCESS
-        </div>
-
-        {/* Navigation List */}
-        <div className="space-y-1.5">
+        {/* Navigation Buttons */}
+        <div className="space-y-1 pt-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentTab === item.id;
@@ -149,19 +134,13 @@ export const NexusSidebar: React.FC<NexusSidebarProps> = ({
         </div>
       </div>
 
-      {/* Bottom: System Health Footer (Matches reference screenshot bottom) */}
-      <div className="p-3 border-t-2 border-black bg-white text-[10px] text-slate-800 space-y-1.5 font-bold">
-        <div className="text-[9px] uppercase tracking-widest text-slate-600 font-black">
-          SYSTEM HEALTH
+      {/* Clean Minimal Custody Status Bar */}
+      <div className="p-3 border-t border-black/20 text-[10px] text-slate-600 font-bold flex items-center justify-between bg-[#EFECE6]/50">
+        <div className="flex items-center space-x-1.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 border border-black animate-pulse" />
+          <span className="font-black text-slate-800">CUSTODY SYNCED</span>
         </div>
-        <div className="flex items-center justify-between">
-          <span>LATENCY: 14ms</span>
-          <span>ENCR: AES-256-GCM</span>
-        </div>
-        <div className="flex items-center justify-between text-slate-600 pt-1 border-t border-slate-200">
-          <span>SUPABASE RELAY:</span>
-          <span className="text-emerald-700 font-black">CONNECTED</span>
-        </div>
+        <span className="text-[9px] font-black uppercase text-slate-500">PS #16</span>
       </div>
     </aside>
   );
