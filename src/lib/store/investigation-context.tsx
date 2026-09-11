@@ -741,6 +741,8 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
   const canAgencyViewCase = (agency: AgencySlug): boolean => {
     if (!state.activeCaseId) return false;
     if (state.activeCaseFilingAgency === agency) return true;
+    const agencyId = AGENCIES[agency]?.id;
+    if (agencyId && state.documents.some((d) => d.agency_id === agencyId)) return true;
     return state.connectionRequests.some(
       (r) =>
         r.status === 'accepted' &&

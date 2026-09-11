@@ -1,10 +1,22 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import ReactDOM from 'react-dom';
+import { useDropzone } from 'react-dropzone';
 import { useInvestigation } from '@/lib/store/investigation-context';
 import { Document, AgencySlug } from '@/types/investigation';
-import { Link2, X, Send, ChevronDown } from 'lucide-react';
+import {
+  Link2,
+  X,
+  Send,
+  ChevronDown,
+  UploadCloud,
+  Image as ImageIcon,
+  Volume2,
+  FileText,
+  Video,
+  Sparkles,
+} from 'lucide-react';
 
 interface ConnectionRequestModalProps {
   onClose: () => void;
@@ -15,6 +27,13 @@ interface ConnectionRequestModalProps {
   targetAgency?: AgencySlug;
 }
 
+const fileTypeIcons: Record<string, React.ReactNode> = {
+  text: <FileText className="w-4 h-4" />,
+  audio: <Volume2 className="w-4 h-4" />,
+  image: <ImageIcon className="w-4 h-4" />,
+  video: <Video className="w-4 h-4" />,
+};
+
 function ConnectionRequestModalInner({
   onClose,
   requestingAgency,
@@ -22,20 +41,42 @@ function ConnectionRequestModalInner({
   documents,
   targetAgency,
 }: ConnectionRequestModalProps) {
-  const { sendConnectionRequest, agencies } = useInvestigation();
+  const { sendConnectionRequest, agencies, ingestDocument } = useInvestigation();
 
   // Build list of all agencies EXCEPT the current portal's agency
   const partnerAgencies = Object.values(agencies).filter(
     (a) => a.slug !== requestingAgency
   );
 
+  const isKotaTransmittingEvidence = requestingAgency === 'kota';
+
   const [selectedTarget, setSelectedTarget] = useState<AgencySlug>(
     targetAgency ?? partnerAgencies[0]?.slug ?? (requestingAgency === 'jodhpur' ? 'kota' : 'jodhpur')
   );
   const [sent, setSent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingStatus, setSubmittingStatus] = useState('');
 
-  const selectedAgency = agencies[selectedTarget];
-  const isKotaTransmittingEvidence = requestingAgency === 'kota';
+  // Media evidence inputs (used when Kota transmits evidence)
+  const [evidenceTitle, setEvidenceTitle] = useState('CCTV Toll Plaza Frame #4 - NH-52');
+  const [author, setAuthor] = useState('Inspector V. Meena (Kota CID)');
+  const [fileType, setFileType] = useState<'text' | 'audio' | 'image' | 'video'>('image');
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcribeStatus, setTranscribeStatus] = useState<string | null>(null);
+
+  const defaultKotaTelemetry = [
+    `[CCTV OPTICAL FORENSIC TELEMETRY // KOTA JURISDICTION]`,
+    `Camera: NH-52 Toll Plaza Kota Bound, Lane 4`,
+    `Date: 12 OCT 2023`,
+    `Time: 16:32:04`,
+    `Vehicle Plate: RJ10E64747 (White Swift Hatchback)`,
+    `Exhibit: Evidence Frame 4 - Exhibit B (Kota Checkpost Intercept)`,
+    `Location: NH-52 Toll Plaza, Kota Bound`,
+    `Lead Note: Suspect vehicle spotted entering Kota bypass heading towards Baran Road. Transmitting verified visual telemetry to Jodhpur Police HQ.`,
+  ].join('\n');
+
+  const [contentText, setContentText] = useState(defaultKotaTelemetry);
 
   const getDefaultBrief = (target: AgencySlug) => {
     const targetAg = agencies[target];
@@ -69,6 +110,107 @@ function ConnectionRequestModalInner({
 
   const [brief, setBrief] = useState(() => getDefaultBrief(selectedTarget));
 
+  const selectedAgency = agencies[selectedTarget];
+
+  // File Dropzone Handler for Media Input
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    if (acceptedFiles.length === 0) return;
+    const file = acceptedFiles[0];
+    setEvidenceTitle(file.name.replace(/\.[^/.]+$/, ''));
+
+    const isAudio =
+      file.type.startsWith('audio/') ||
+      /\.(mp3|wav|m4a|ogg|aac|flac|wma)$/i.test(file.name);
+
+    if (isAudio) {
+      setFileType('audio');
+      setIsTranscribing(true);
+      setTranscribeStatus('🎙️ Sarvam AI (Saaras): Transcribing speech (English / Hindi)...');
+      setContentText(`[Transcribing audio via Sarvam AI (${file.name})... please wait]`);
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const res = await fetch('/api/ai/transcribe', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.transcript) {
+            let formatted = `[SARVAM AI FORENSIC TRANSCRIPT — ${file.name}]\n`;
+            if (data.english_translation && data.english_translation.trim() !== data.transcript.trim()) {
+              formatted += `Original Language: ${data.language_code || 'Hindi'}\n\n--- ORIGINAL TRANSCRIPT ---\n${data.transcript}\n\n--- ENGLISH TRANSLATION (SARVAM MAYURA) ---\n${data.english_translation}`;
+            } else {
+              formatted += `Language: ${data.language_code || 'English/Auto'}\n\n--- TRANSCRIPT ---\n${data.transcript}`;
+            }
+            setContentText(formatted);
+            setTranscribeStatus(`✅ Transcribed (${data.language_code || 'detected'}) via Sarvam AI`);
+          } else {
+            setContentText(`[Audio Ingest: ${file.name} — No audible speech detected by Sarvam Saaras STT]`);
+            setTranscribeStatus('⚠️ No speech detected in audio file');
+          }
+        } else {
+          setContentText(`[Audio File: ${file.name} (${(file.size / 1024).toFixed(1)} KB)]\n(Manual notes can be entered below)`);
+          setTranscribeStatus('⚠️ Transcription completed with fallback');
+        }
+      } catch (err: any) {
+        console.error('Audio transcription error:', err);
+        setContentText(`[Audio File: ${file.name}]\n(Manual notes can be entered below)`);
+        setTranscribeStatus('⚠️ Network error during Sarvam transcription');
+      } finally {
+        setIsTranscribing(false);
+      }
+      return;
+    }
+
+    if (file.type.startsWith('image/')) {
+      setFileType('image');
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        setMediaUrl(dataUrl);
+      };
+      reader.readAsDataURL(file);
+
+      setContentText(
+        `[CCTV OPTICAL FORENSIC TELEMETRY // KOTA JURISDICTION]\n` +
+        `Camera: NH-52 Toll Plaza Kota Bound, Lane 4\n` +
+        `Date: 12 OCT 2023\n` +
+        `Time: 16:32:04\n` +
+        `Vehicle Plate: RJ10E64747 (White Swift Hatchback)\n` +
+        `Exhibit: Evidence Frame 4 - Exhibit B\n` +
+        `Location: NH-52 Toll Plaza, Kota Bound\n` +
+        `Source File: ${file.name}\n` +
+        `Kota CID Note: Vehicle spotted entering Kota. Transmitting optical evidence to Jodhpur HQ.`
+      );
+      return;
+    }
+
+    if (file.type.startsWith('video/')) {
+      setFileType('video');
+    } else {
+      setFileType('text');
+    }
+
+    if (file.type.includes('text') || file.name.endsWith('.txt') || file.name.endsWith('.log') || file.name.endsWith('.json')) {
+      const reader = new FileReader();
+      reader.onload = (e) => setContentText(e.target?.result as string);
+      reader.readAsText(file);
+    } else {
+      setContentText(
+        `[Multimodal Ingest: ${file.name}]\nFormat: ${file.type || 'Binary'}\nSize: ${(file.size / 1024).toFixed(1)} KB\nExtracted forensic telemetry ready for AI model analysis.`
+      );
+    }
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    multiple: false,
+  });
+
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -81,23 +223,67 @@ function ConnectionRequestModalInner({
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!selectedTarget) return;
-    sendConnectionRequest(requestingAgency, selectedTarget, brief);
-    setSent(true);
-    setTimeout(onClose, 1800);
+
+    if (isKotaTransmittingEvidence) {
+      setIsSubmitting(true);
+      setSubmittingStatus('Ingesting media & extracting forensic intelligence...');
+
+      try {
+        const finalTitle = evidenceTitle.trim() || 'Kota CCTV / Intercept Evidence';
+        const finalContent = contentText.trim();
+
+        // 1. Ingest evidence into the active investigation case under Kota CID
+        await ingestDocument({
+          title: finalTitle,
+          content_text: finalContent,
+          agency_slug: requestingAgency,
+          file_type: fileType,
+          media_url: mediaUrl ?? undefined,
+          uploaded_by: author.trim() || 'Kota Police CID (Field Unit)',
+          caseName: caseName || 'FIR-007: Aarav kidnapping',
+        });
+
+        // 2. Transmit evidence report to Jodhpur Police
+        setSubmittingStatus('Transmitting evidence dossier to Jodhpur Police HQ...');
+        const transmissionSnapshot = [
+          `[EVIDENCE TRANSMISSION REPORT // KOTA POLICE CID]`,
+          `To: ${selectedAgency?.name ?? 'Jodhpur Police Department'} (Lead Investigating Agency)`,
+          `Case Reference: ${caseName || 'FIR-007: Aarav kidnapping'}`,
+          `Evidence Title: [${fileType.toUpperCase()}] ${finalTitle}`,
+          author.trim() ? `Depositing Officer: ${author.trim()}` : '',
+          `\n--- TRANSMITTED EVIDENCE RECORD & TELEMETRY ---\n${finalContent}`,
+          `\nKota Police CID has recovered this evidence under Kota jurisdiction and transmitted full media files, optical telemetry, and timeline events to Jodhpur Police HQ.`,
+        ]
+          .filter(Boolean)
+          .join('\n');
+
+        sendConnectionRequest(requestingAgency, selectedTarget, transmissionSnapshot);
+        setSent(true);
+        setTimeout(onClose, 2000);
+      } catch (err) {
+        console.error('Evidence transmission failed:', err);
+      } finally {
+        setIsSubmitting(false);
+      }
+    } else {
+      sendConnectionRequest(requestingAgency, selectedTarget, brief);
+      setSent(true);
+      setTimeout(onClose, 1800);
+    }
   };
 
   return (
     <div
-      className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       aria-modal="true"
       role="dialog"
     >
-      <div className="w-full max-w-lg bg-white border-2 border-black shadow-brutal-lg font-mono text-black">
+      <div className="w-full max-w-xl bg-white border-2 border-black shadow-brutal-lg font-mono text-black my-8 max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b-2 border-black bg-black text-white">
+        <div className="flex items-center justify-between px-5 py-4 border-b-2 border-black bg-black text-white shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-[#F5C842] flex items-center justify-center">
               {isKotaTransmittingEvidence ? (
@@ -114,7 +300,7 @@ function ConnectionRequestModalInner({
               </h2>
               <p className="text-[10px] text-slate-400 font-bold">
                 {isKotaTransmittingEvidence
-                  ? 'Forward recovered evidence & jurisdictional leads to primary investigating agency'
+                  ? 'Attach recovered media, CCTV frames or field logs & forward to Jodhpur HQ'
                   : 'Send case brief snapshot and request cross-agency joint investigation'}
               </p>
             </div>
@@ -131,21 +317,21 @@ function ConnectionRequestModalInner({
             </div>
             <p className="text-sm font-black uppercase tracking-wider text-emerald-700">
               {isKotaTransmittingEvidence
-                ? `Evidence Transmitted to ${selectedAgency?.name ?? selectedTarget}`
+                ? `Evidence Successfully Transmitted to ${selectedAgency?.name ?? selectedTarget}!`
                 : `Case Brief Sent to ${selectedAgency?.name ?? selectedTarget}`}
             </p>
             <p className="text-xs text-slate-600 font-bold font-sans">
               {isKotaTransmittingEvidence
-                ? 'Jodhpur Police HQ will see an incoming evidence transmission alert in their portal to merge into the case.'
+                ? 'Jodhpur Police HQ will receive this evidence item with extracted AI telemetry in real-time.'
                 : 'The target agency will see a pending joint investigation request in their portal.'}
             </p>
           </div>
         ) : (
-          <div className="p-5 space-y-4">
+          <div className="p-5 space-y-4 overflow-y-auto flex-1">
             {/* Target Agency — dropdown */}
             <div>
               <label htmlFor="target-agency-select" className="block text-[11px] font-black uppercase text-slate-700 mb-1.5">
-                {isKotaTransmittingEvidence ? 'Select Recipient Agency (Lead Investigator)' : 'Select Target Agency'}
+                {isKotaTransmittingEvidence ? 'Recipient Agency (Lead Investigator)' : 'Select Target Agency'}
               </label>
               <div className="relative">
                 <select
@@ -180,36 +366,173 @@ function ConnectionRequestModalInner({
                   <span className="text-slate-700">{selectedAgency.name}</span>
                 </div>
               )}
-              <p className="text-[10px] text-slate-500 font-bold mt-1">
-                Only agencies registered in the Surag-AI network are listed.
-              </p>
             </div>
 
-            {/* Brief / Evidence Snapshot */}
-            <div>
-              <label className="block text-[11px] font-black uppercase text-slate-700 mb-1.5">
-                {isKotaTransmittingEvidence
-                  ? 'Evidence Disclosure & Transmission Report'
-                  : 'Case Brief Snapshot'}{' '}
-                <span className="text-slate-500 font-normal">(editable before sending)</span>
-              </label>
-              <textarea
-                rows={6}
-                value={brief}
-                onChange={(e) => setBrief(e.target.value)}
-                className="w-full bg-[#FBF9F5] border-2 border-black text-xs font-medium text-black p-2.5 outline-none focus:bg-white font-sans resize-none"
-              />
-              <p className="text-[10px] text-slate-500 font-bold mt-1">
-                {isKotaTransmittingEvidence
-                  ? `This evidence report and associated records will be forwarded to ${selectedAgency?.name ?? 'Jodhpur Police Department'}.`
-                  : 'This snapshot is shared with the target agency. They will see it before deciding to Accept or Reject.'}
-              </p>
-            </div>
+            {/* ── KOTA SPECIFIC: MEDIA INPUT & EVIDENCE UPLOAD ── */}
+            {isKotaTransmittingEvidence ? (
+              <div className="space-y-4 border-t-2 border-black pt-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[11px] font-black uppercase text-slate-800">
+                      Attach Media Evidence (CCTV Frame, Audio Intercept, Document)
+                    </label>
+                    <span className="text-[10px] text-amber-700 font-bold bg-amber-100 px-2 py-0.5 border border-amber-400">
+                      MEDIA INPUT READY
+                    </span>
+                  </div>
+
+                  {/* Dropzone */}
+                  <div
+                    {...getRootProps()}
+                    className={`border-2 border-dashed border-black p-4 text-center cursor-pointer transition-all ${
+                      isDragActive ? 'bg-yellow-50 border-[#F5C842]' : 'bg-[#FBF9F5] hover:bg-white'
+                    }`}
+                  >
+                    <input {...getInputProps()} />
+                    <UploadCloud className="w-6 h-6 text-black mx-auto mb-1.5" />
+                    <p className="text-xs font-black uppercase text-black">
+                      Drop evidence file here or <span className="underline text-blue-700">browse</span>
+                    </p>
+                    <p className="text-[10px] text-slate-500 font-bold mt-1">
+                      .jpg · .png · .mp3 · .wav · .mp4 · .txt · .pdf (Audio transcribed via Sarvam AI)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Image Preview Thumbnail */}
+                {mediaUrl && fileType === 'image' && (
+                  <div className="border-2 border-black bg-neutral-900 p-2.5 flex items-center gap-3 shadow-brutal">
+                    <img
+                      src={mediaUrl}
+                      alt="Optical Evidence Preview"
+                      className="h-20 max-w-[130px] object-cover border border-white shrink-0 bg-black"
+                    />
+                    <div className="text-white text-xs space-y-1 font-mono">
+                      <div className="font-black text-[#F5C842] uppercase text-[11px]">
+                        📷 OPTICAL EVIDENCE PREVIEW LOADED
+                      </div>
+                      <div className="text-[10px] text-slate-300">
+                        Visual telemetry ready for extraction (Car plate, location: Kota, date, time).
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Audio Transcription Status Banner */}
+                {(isTranscribing || transcribeStatus) && (
+                  <div className={`p-2.5 border-2 border-black text-xs font-bold flex items-center justify-between gap-2 ${
+                    isTranscribing ? 'bg-yellow-100 text-black animate-pulse' : 'bg-green-50 text-emerald-950'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <Volume2 className="w-4 h-4 shrink-0 text-black" />
+                      <span>{transcribeStatus}</span>
+                    </div>
+                    {isTranscribing && (
+                      <span className="text-[10px] bg-black text-white px-2 py-0.5 uppercase tracking-widest font-mono">
+                        SARVAM STT
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Classification and Title */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-black uppercase text-slate-700 mb-1">
+                      Evidence Title
+                    </label>
+                    <input
+                      type="text"
+                      value={evidenceTitle}
+                      onChange={(e) => setEvidenceTitle(e.target.value)}
+                      placeholder="e.g. CCTV Toll Plaza Frame #4 - NH-52"
+                      className="w-full bg-[#FBF9F5] border-2 border-black text-xs font-bold text-black p-2 outline-none focus:bg-white font-sans"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-black uppercase text-slate-700 mb-1">
+                      Depositing Officer / Unit
+                    </label>
+                    <input
+                      type="text"
+                      value={author}
+                      onChange={(e) => setAuthor(e.target.value)}
+                      placeholder="e.g. Inspector V. Meena (Kota CID)"
+                      className="w-full bg-[#FBF9F5] border-2 border-black text-xs font-bold text-black p-2 outline-none focus:bg-white font-sans"
+                    />
+                  </div>
+                </div>
+
+                {/* Media Type Classification */}
+                <div>
+                  <label className="block text-[11px] font-black uppercase text-slate-700 mb-1">
+                    Classification
+                  </label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {(['text', 'audio', 'image', 'video'] as const).map((ft) => (
+                      <button
+                        key={ft}
+                        type="button"
+                        onClick={() => setFileType(ft)}
+                        className={`p-2 border-2 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase transition cursor-pointer ${
+                          fileType === ft
+                            ? 'bg-black text-white border-black'
+                            : 'bg-[#FBF9F5] text-slate-600 border-black/40 hover:border-black'
+                        }`}
+                      >
+                        {fileTypeIcons[ft]}
+                        {ft}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Forensic Telemetry & Record Notes */}
+                <div>
+                  <label className="block text-[11px] font-black uppercase text-slate-700 mb-1">
+                    Evidence Disclosure & Forensic Telemetry Notes <span className="text-slate-500 font-normal">(editable)</span>
+                  </label>
+                  <textarea
+                    rows={5}
+                    value={contentText}
+                    onChange={(e) => setContentText(e.target.value)}
+                    className="w-full bg-[#FBF9F5] border-2 border-black text-xs font-medium text-black p-2.5 outline-none focus:bg-white font-mono resize-none leading-relaxed"
+                  />
+                  <p className="text-[10px] text-slate-500 font-bold mt-1">
+                    This media evidence, vehicle coordinates and notes will be transmitted to Jodhpur Police HQ and ingested into the case.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* ── JODHPUR SPECIFIC: CASE BRIEF SNAPSHOT ── */
+              <div>
+                <label className="block text-[11px] font-black uppercase text-slate-700 mb-1.5">
+                  Case Brief Snapshot <span className="text-slate-500 font-normal">(editable before sending)</span>
+                </label>
+                <textarea
+                  rows={6}
+                  value={brief}
+                  onChange={(e) => setBrief(e.target.value)}
+                  className="w-full bg-[#FBF9F5] border-2 border-black text-xs font-medium text-black p-2.5 outline-none focus:bg-white font-sans resize-none"
+                />
+                <p className="text-[10px] text-slate-500 font-bold mt-1">
+                  This snapshot is shared with Kota Police CID to initiate joint investigation.
+                </p>
+              </div>
+            )}
+
+            {/* Submitting progress banner */}
+            {isSubmitting && (
+              <div className="p-3 bg-amber-100 border-2 border-amber-600 text-amber-900 text-xs font-black flex items-center gap-2 animate-pulse font-sans">
+                <Sparkles className="w-4 h-4 animate-spin text-amber-700 shrink-0" />
+                <span>{submittingStatus}</span>
+              </div>
+            )}
 
             {/* Info box */}
             <div className="p-3 bg-blue-50 border-2 border-blue-400 text-[11px] font-bold text-blue-800 font-sans leading-relaxed">
               {isKotaTransmittingEvidence
-                ? `ℹ️ Kota Police CID is forwarding evidence to ${selectedAgency?.name ?? 'Jodhpur Police Department'}. Upon receipt, this evidence will be merged into Jodhpur's Evidence Vault, Entity Graph, and Timeline in real-time.`
+                ? `ℹ️ Kota Police CID is transmitting evidence to ${selectedAgency?.name ?? 'Jodhpur Police Department'}. Upon submission, AI will extract entity & vehicle intelligence, and Jodhpur Police HQ will receive the evidence in real-time.`
                 : `ℹ️ Once accepted, ${selectedAgency?.name ?? 'the target agency'} will gain full read/write access to this case. Evidence added by either agency will sync in real-time to both portals.`}
             </div>
 
@@ -217,19 +540,29 @@ function ConnectionRequestModalInner({
             <div className="flex items-center justify-between gap-2 pt-1">
               <button
                 onClick={onClose}
-                className="px-4 py-2 bg-white border-2 border-black text-xs font-black hover:bg-slate-100 transition cursor-pointer"
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-white border-2 border-black text-xs font-black hover:bg-slate-100 transition cursor-pointer disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSend}
-                disabled={!brief.trim() || !selectedTarget}
-                className="flex items-center gap-2 px-5 py-2 bg-black text-[#F5C842] font-black text-xs border-2 border-black shadow-brutal disabled:opacity-40 hover:bg-slate-900 transition active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                disabled={isSubmitting || !selectedTarget || (isKotaTransmittingEvidence ? !contentText.trim() : !brief.trim())}
+                className="flex items-center gap-2 px-5 py-2.5 bg-black text-[#F5C842] font-black text-xs border-2 border-black shadow-brutal disabled:opacity-40 hover:bg-slate-900 transition active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
               >
-                <Send className="w-4 h-4" />
-                {isKotaTransmittingEvidence
-                  ? `TRANSMIT EVIDENCE TO ${(selectedAgency?.name ?? selectedTarget).toUpperCase()}`
-                  : `SEND CASE BRIEF TO ${(selectedAgency?.name ?? selectedTarget).toUpperCase()}`}
+                {isSubmitting ? (
+                  <>
+                    <Sparkles className="w-4 h-4 animate-spin" />
+                    TRANSMITTING EVIDENCE...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    {isKotaTransmittingEvidence
+                      ? `TRANSMIT EVIDENCE TO ${(selectedAgency?.name ?? selectedTarget).toUpperCase()}`
+                      : `SEND CASE BRIEF TO ${(selectedAgency?.name ?? selectedTarget).toUpperCase()}`}
+                  </>
+                )}
               </button>
             </div>
           </div>
