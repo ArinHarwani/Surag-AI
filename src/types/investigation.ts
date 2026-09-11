@@ -93,6 +93,8 @@ export interface ConnectionRequest {
   requesting_agency_slug: AgencySlug;
   target_agency_slug: AgencySlug;
   case_brief_snapshot: string;
+  media_url?: string;
+  file_type?: string;
   status: ConnectionRequestStatus;
   created_at: string;
   responded_at?: string;

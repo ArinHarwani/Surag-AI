@@ -130,12 +130,19 @@ function ConnectionRequestModalInner({
       setTranscribeStatus('🎙️ Sarvam AI (Saaras): Transcribing speech (English / Hindi)...');
       setContentText(`[Transcribing audio via Sarvam AI (${file.name})... please wait]`);
 
-      // Read audio data URL for real playback and persistence
+      // Read audio data URL with audio MIME so browser HTML5 audio element plays it!
+      const arrayBuf = await file.arrayBuffer();
+      let audioMime = 'audio/mpeg';
+      if (file.name.toLowerCase().endsWith('.wav')) audioMime = 'audio/wav';
+      else if (file.name.toLowerCase().endsWith('.ogg') || file.name.toLowerCase().endsWith('.opus')) audioMime = 'audio/ogg';
+      else if (file.name.toLowerCase().endsWith('.m4a') || file.name.toLowerCase().endsWith('.aac')) audioMime = 'audio/mp4';
+
+      const audioBlob = new Blob([arrayBuf], { type: audioMime });
       const audioReader = new FileReader();
       audioReader.onload = (e) => {
         setMediaUrl(e.target?.result as string);
       };
-      audioReader.readAsDataURL(file);
+      audioReader.readAsDataURL(audioBlob);
 
       try {
         const formData = new FormData();
@@ -285,7 +292,7 @@ function ConnectionRequestModalInner({
           .filter(Boolean)
           .join('\n');
 
-        sendConnectionRequest(requestingAgency, selectedTarget, transmissionSnapshot);
+        sendConnectionRequest(requestingAgency, selectedTarget, transmissionSnapshot, mediaUrl ?? undefined, fileType);
         setSent(true);
         setTimeout(onClose, 2000);
       } catch (err) {

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useInvestigation } from '@/lib/store/investigation-context';
 import { AgencySlug } from '@/types/investigation';
-import { Link2, X, Check, XCircle, Clock } from 'lucide-react';
+import { Link2, X, Check, XCircle, Clock, Volume2 } from 'lucide-react';
 
 interface ConnectionRequestsPanelProps {
   onClose: () => void;
@@ -30,7 +30,7 @@ function ConnectionRequestsPanelInner({
   onClose,
   currentPortalAgency,
 }: ConnectionRequestsPanelProps) {
-  const { connectionRequests, respondToConnectionRequest } = useInvestigation();
+  const { connectionRequests, respondToConnectionRequest, documents, agencies } = useInvestigation();
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -152,8 +152,42 @@ function ConnectionRequestsPanelInner({
                         {statusBadge(req.status)}
                       </div>
 
+                      {/* Audio Player if audio evidence was transmitted */}
+                      {(() => {
+                        const relatedAudioDoc = documents.find(
+                          (d) =>
+                            d.file_type === 'audio' &&
+                            (d.agency_id === agencies[req.requesting_agency_slug]?.id ||
+                              d.uploaded_by?.toLowerCase().includes('kota'))
+                        );
+                        const rawAudio = req.media_url || relatedAudioDoc?.media_url;
+                        const audioUrl = rawAudio
+                          ? rawAudio
+                              .replace(/^data:video\/mpeg/i, 'data:audio/mpeg')
+                              .replace(/^data:video\/mp4/i, 'data:audio/mp4')
+                          : null;
+
+                        if (!audioUrl) return null;
+
+                        return (
+                          <div className="border-2 border-black bg-neutral-900 p-3 space-y-2 text-white shadow-brutal">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-black uppercase text-[#F5C842] flex items-center gap-1.5 font-mono">
+                                <Volume2 className="w-4 h-4 text-[#F5C842] shrink-0" />
+                                TRANSMITTED AUDIO STREAM // LISTEN INTERCEPT
+                              </span>
+                              <span className="text-[9px] font-bold bg-emerald-950 text-emerald-300 px-2 py-0.5 border border-emerald-700">
+                                PLAYABLE AUDIO
+                              </span>
+                            </div>
+                            <audio controls className="w-full h-8" src={audioUrl} />
+                          </div>
+                        );
+                      })()}
+
                       {/* Brief snapshot */}
-                      <div className="bg-white border border-slate-300 p-3 text-xs text-slate-700 font-sans leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto">
+                      <div className="bg-white border border-slate-300 p-3 text-xs text-slate-700 font-sans leading-relaxed whitespace-pre-wrap max-h-36 overflow-y-auto">
+                        <span className="font-mono font-bold text-slate-500 block mb-1 text-[10px]">EVIDENCE DOSSIER & TRANSCRIPT:</span>
                         {req.case_brief_snapshot}
                       </div>
 

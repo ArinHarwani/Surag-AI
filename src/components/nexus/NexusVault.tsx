@@ -273,7 +273,7 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
                           id={`audio-player-${doc.id}`}
                           controls
                           className="w-full h-9 border border-black bg-white"
-                          src={doc.media_url}
+                          src={doc.media_url.replace(/^data:video\/mpeg/i, 'data:audio/mpeg').replace(/^data:video\/mp4/i, 'data:audio/mp4')}
                           onPlay={() => setPlayingAudioId(doc.id)}
                           onPause={() => setPlayingAudioId(null)}
                           onEnded={() => setPlayingAudioId(null)}

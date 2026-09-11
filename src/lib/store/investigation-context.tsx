@@ -127,7 +127,9 @@ interface InvestigationContextType extends CaseState {
   sendConnectionRequest: (
     requestingAgency: AgencySlug,
     targetAgency: AgencySlug,
-    briefSnapshot: string
+    briefSnapshot: string,
+    mediaUrl?: string,
+    fileType?: string
   ) => void;
   respondToConnectionRequest: (
     requestId: string,
@@ -254,7 +256,13 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
       if (mounted && cases && cases.length > 0) {
         const activeCase = cases[0];
         // Convert to UI state with strict case isolation
-        const caseDocs = (docs || []).filter((d) => d.case_id === activeCase.id).map((d) => ({ ...d, media_url: d.storage_path }));
+        const caseDocs = (docs || []).filter((d) => d.case_id === activeCase.id).map((d) => {
+          let cleanMedia = d.storage_path;
+          if (cleanMedia && d.file_type === 'audio') {
+            cleanMedia = cleanMedia.replace(/^data:video\/mpeg/i, 'data:audio/mpeg').replace(/^data:video\/mp4/i, 'data:audio/mp4');
+          }
+          return { ...d, media_url: cleanMedia };
+        });
         const caseEnts = (ents || []).filter((e) => e.case_id === activeCase.id);
         const caseEvts = (evts || []).filter((e) => e.case_id === activeCase.id);
         const caseRels = (rels || []).filter((r) => r.case_id === activeCase.id);
@@ -705,10 +713,16 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
   const sendConnectionRequest = (
     requestingAgency: AgencySlug,
     targetAgency: AgencySlug,
-    briefSnapshot: string
+    briefSnapshot: string,
+    mediaUrl?: string,
+    fileType?: string
   ) => {
     const resolvedCaseId = state.activeCaseId || crypto.randomUUID();
     const resolvedCaseName = state.activeCaseName || 'FIR-007: Aarav kidnapping';
+
+    const cleanMedia = mediaUrl
+      ? mediaUrl.replace(/^data:video\/mpeg/i, 'data:audio/mpeg').replace(/^data:video\/mp4/i, 'data:audio/mp4')
+      : undefined;
 
     const req: ConnectionRequest = {
       id: crypto.randomUUID(),
@@ -717,6 +731,8 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
       requesting_agency_slug: requestingAgency,
       target_agency_slug: targetAgency,
       case_brief_snapshot: briefSnapshot,
+      media_url: cleanMedia,
+      file_type: fileType,
       status: 'pending',
       created_at: new Date().toISOString(),
     };

@@ -13,8 +13,33 @@ export async function POST(req: NextRequest) {
     }
 
     // Prepare multipart form data for Sarvam Speech-to-Text
+    // Sarvam STT requires specific audio mime types. Normalize video/mpeg and non-audio headers:
+    let normalizedMime = file.type;
+    const lowerName = (file.name || '').toLowerCase();
+
+    if (!normalizedMime || normalizedMime.startsWith('video/') || normalizedMime === 'video/mpeg') {
+      if (lowerName.endsWith('.mp3') || lowerName.endsWith('.mpeg') || lowerName.endsWith('.mpga')) {
+        normalizedMime = 'audio/mpeg';
+      } else if (lowerName.endsWith('.wav')) {
+        normalizedMime = 'audio/wav';
+      } else if (lowerName.endsWith('.m4a') || lowerName.endsWith('.mp4') || lowerName.endsWith('.aac')) {
+        normalizedMime = 'audio/mp4';
+      } else if (lowerName.endsWith('.ogg') || lowerName.endsWith('.opus')) {
+        normalizedMime = 'audio/ogg';
+      } else {
+        normalizedMime = 'audio/mpeg';
+      }
+    }
+
+    const fileBuffer = await file.arrayBuffer();
+    const normalizedBlob = new Blob([fileBuffer], { type: normalizedMime });
+    let normalizedFileName = file.name || 'audio.mp3';
+    if (normalizedFileName.toLowerCase().endsWith('.mpeg')) {
+      normalizedFileName = normalizedFileName.replace(/\.mpeg$/i, '.mp3');
+    }
+
     const sarvamFormData = new FormData();
-    sarvamFormData.append('file', file, file.name || 'audio.wav');
+    sarvamFormData.append('file', normalizedBlob, normalizedFileName);
     sarvamFormData.append('model', 'saaras:v3');
     if (languageCode) {
       sarvamFormData.append('language_code', languageCode);
