@@ -75,11 +75,12 @@ const PARTNER_LABELS: Record<AgencySlug, string> = {
 };
 
 // Cities available for cross-agency reporting/connection
-const REPORTING_CITIES = [
-  { label: 'JAIPUR', sublabel: 'Rajasthan Police HQ' },
-  { label: 'KOTA',   sublabel: 'Kota Police CID' },
-  { label: 'AJMER',  sublabel: 'Ajmer District Police' },
-  { label: 'JAISALMER', sublabel: 'Jaisalmer Border Police' },
+const ALL_REPORTING_CITIES: Array<{ slug: AgencySlug; label: string; sublabel: string }> = [
+  { slug: 'jodhpur', label: 'JODHPUR', sublabel: 'Jodhpur Police HQ' },
+  { slug: 'kota', label: 'KOTA', sublabel: 'Kota Police CID' },
+  { slug: 'jaipur', label: 'JAIPUR', sublabel: 'Rajasthan Police HQ' },
+  { slug: 'ajmer', label: 'AJMER', sublabel: 'Ajmer District Police' },
+  { slug: 'jaisalmer', label: 'JAISALMER', sublabel: 'Jaisalmer Border Police' },
 ];
 
 export const NexusHeader: React.FC<NexusHeaderProps> = ({
@@ -99,6 +100,9 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
   const isLinked = acceptedLinkedAgencies.length > 0;
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
+
+  // Dynamic reporting cities: remove current agency so Kota reports to Jodhpur, and Jodhpur reports to Kota
+  const availableCities = ALL_REPORTING_CITIES.filter((c) => c.slug !== scopedAgency);
 
   return (
     <header className="bg-[#EFECE6] border-b-2 border-black text-black px-5 py-3 sticky top-0 z-30 select-none font-mono w-full shadow-xs shrink-0">
@@ -157,33 +161,29 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
           {!hasExistingConnectionRequest && !isLinked && (
             <div className="relative">
               <button
-                onClick={() => {
-                  if (!hasActiveCase) return;
-                  setCityDropdownOpen((o) => !o);
-                }}
-                disabled={!hasActiveCase}
-                title={hasActiveCase ? "Select city to report / connect to" : "Open a case first to send connection request"}
-                className={`flex items-center gap-1.5 px-3 py-1.5 border-2 border-black shadow-brutal text-xs font-black transition ${
-                  hasActiveCase
-                    ? 'bg-white hover:bg-slate-100 cursor-pointer active:translate-x-0.5 active:translate-y-0.5'
-                    : 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-75'
-                }`}
+                onClick={() => setCityDropdownOpen((o) => !o)}
+                title="Select city to report / connect to"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 border-2 border-black shadow-brutal text-xs font-black transition active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
               >
                 <MapPin className="w-3.5 h-3.5 text-slate-700" />
                 <span>{selectedCity ? `REPORT TO: ${selectedCity}` : 'REPORT / CONNECT TO'}</span>
                 <ChevronDown className={`w-3 h-3 transition-transform ${cityDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
-              {cityDropdownOpen && hasActiveCase && (
-                <div className="absolute right-0 top-full mt-1 w-52 bg-white border-2 border-black shadow-brutal z-50">
-                  {REPORTING_CITIES.map((city) => (
+              {cityDropdownOpen && (
+                <div className="absolute right-0 top-full mt-1 w-56 bg-white border-2 border-black shadow-brutal z-50">
+                  {availableCities.map((city) => (
                     <button
                       key={city.label}
                       onClick={() => {
                         setSelectedCity(city.label);
                         setCityDropdownOpen(false);
-                        onOpenConnect(city.label.toLowerCase() as AgencySlug);
+                        if (hasActiveCase) {
+                          onOpenConnect(city.slug);
+                        } else {
+                          onOpenUpload();
+                        }
                       }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-[#F5C842] transition flex flex-col border-b border-black/10 last:border-0"
+                      className="w-full text-left px-4 py-2.5 hover:bg-[#F5C842] transition flex flex-col border-b border-black/10 last:border-0 cursor-pointer"
                     >
                       <span className="text-xs font-black uppercase text-black">{city.label}</span>
                       <span className="text-[10px] text-slate-500 font-bold">{city.sublabel}</span>
