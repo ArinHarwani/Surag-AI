@@ -25,6 +25,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { Document, Entity, Relationship, Contradiction, Event } from '@/types/investigation';
+import { formatTimeIST } from '@/lib/utils/formatDate';
 
 interface NexusOverviewProps {
   documents: Document[];
@@ -277,7 +278,7 @@ export const NexusOverview: React.FC<NexusOverviewProps> = ({
                       #{idx + 1}
                     </span>
                     <span suppressHydrationWarning className={`text-[10px] font-black ${isConflict ? 'text-red-700' : 'text-slate-700'}`}>
-                      {new Date(evt.event_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST
+                      {formatTimeIST(evt.event_timestamp, false)}
                     </span>
                   </div>
 

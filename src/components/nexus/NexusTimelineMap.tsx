@@ -22,6 +22,7 @@ import {
   Info
 } from 'lucide-react';
 import { Event } from '@/types/investigation';
+import { formatTimeIST } from '@/lib/utils/formatDate';
 import 'leaflet/dist/leaflet.css';
 
 interface NexusTimelineMapProps {
@@ -188,8 +189,8 @@ const InnerMap = dynamic(
                       <span className="font-black text-black uppercase text-xs">
                         {evt.location_text || 'KNOWN COORDINATES'}
                       </span>
-                      <span className="text-[11px] font-black bg-black text-white px-1.5 py-0.5 rounded-xs">
-                        {new Date(evt.event_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST
+                      <span suppressHydrationWarning className="text-[11px] font-black bg-black text-white px-1.5 py-0.5 rounded-xs">
+                        {formatTimeIST(evt.event_timestamp, false)}
                       </span>
                     </div>
 
@@ -468,8 +469,8 @@ export const NexusTimelineMap: React.FC<NexusTimelineMapProps> = ({
                   }`}
                 >
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className="font-black text-black">
-                      {new Date(evt.event_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST
+                    <span suppressHydrationWarning className="font-black text-black">
+                      {formatTimeIST(evt.event_timestamp, false)}
                     </span>
                     <span className={`text-[9px] font-black px-1.5 py-0.2 border border-black ${
                       isConflict ? 'bg-red-600 text-white' : 'bg-slate-200 text-black'

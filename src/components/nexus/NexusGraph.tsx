@@ -19,6 +19,7 @@ import {
 import { NexusLinkGraph } from './NexusLinkGraph';
 import { NexusEntityLineGraph } from './NexusEntityLineGraph';
 import { NexusGeoGraphMap } from './NexusGeoGraphMap';
+import { formatTimeIST } from '@/lib/utils/formatDate';
 
 const TYPE_COLORS: Record<EntityType, string> = {
   person: '#10B981',
@@ -217,8 +218,8 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({
                 <h3 className="text-base font-black text-black leading-tight">
                   {activeNodeForDrawer.name}
                 </h3>
-                <p className="text-[10px] text-slate-600 font-bold mt-0.5">
-                  FIRST SEEN: {new Date(activeNodeForDrawer.first_seen_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST
+                <p suppressHydrationWarning className="text-[10px] text-slate-600 font-bold mt-0.5">
+                  FIRST SEEN: {formatTimeIST(activeNodeForDrawer.first_seen_at, false)}
                 </p>
               </div>
               <button

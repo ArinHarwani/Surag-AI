@@ -13,6 +13,7 @@ import {
   Clock,
   ExternalLink,
 } from 'lucide-react';
+import { formatTimeIST } from '@/lib/utils/formatDate';
 
 export function ContradictionBanner() {
   const {
@@ -97,11 +98,8 @@ export function ContradictionBanner() {
                         </span>
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3 text-cyan-400" />
-                          <span>
-                            {evtA?.event_timestamp
-                              ? new Date(evtA.event_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                              : ''}{' '}
-                            IST
+                          <span suppressHydrationWarning>
+                            {evtA?.event_timestamp ? formatTimeIST(evtA.event_timestamp, false) : ''}
                           </span>
                         </span>
                       </div>
@@ -139,11 +137,8 @@ export function ContradictionBanner() {
                         </span>
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3 text-amber-400" />
-                          <span>
-                            {evtB?.event_timestamp
-                              ? new Date(evtB.event_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                              : ''}{' '}
-                            IST
+                          <span suppressHydrationWarning>
+                            {evtB?.event_timestamp ? formatTimeIST(evtB.event_timestamp, false) : ''}
                           </span>
                         </span>
                       </div>

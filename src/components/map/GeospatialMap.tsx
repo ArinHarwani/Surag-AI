@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { useInvestigation } from '@/lib/store/investigation-context';
 import { Event } from '@/types/investigation';
 import { MapPin, Navigation, Compass, AlertTriangle, Eye } from 'lucide-react';
+import { formatTimeIST } from '@/lib/utils/formatDate';
 
 // Leaflet CSS needs to be present
 import 'leaflet/dist/leaflet.css';
@@ -122,8 +123,8 @@ const DynamicMapContainer = dynamic(
                         <span className="text-[10px] uppercase font-bold text-cyan-400">
                           {isJodhpur ? 'Jodhpur Police Sector' : 'Kota Police Sector'}
                         </span>
-                        <span className="text-[10px] text-slate-400">
-                          {new Date(evt.event_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST
+                        <span suppressHydrationWarning className="text-[10px] text-slate-400">
+                          {formatTimeIST(evt.event_timestamp, false)}
                         </span>
                       </div>
                       <div className="font-bold text-slate-100 leading-snug">

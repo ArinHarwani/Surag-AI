@@ -6,6 +6,7 @@ import {
   GRAPHRAG_SUMMARY_PROMPT,
 } from './prompts';
 import { findCandidateContradictions, FlaggedCandidate } from './deterministic-detector';
+import { formatTimeIST } from '@/lib/utils/formatDate';
 
 export interface ExtractionResult {
   entities: Array<{
@@ -353,14 +354,13 @@ export async function explainContradiction(candidate: FlaggedCandidate): Promise
   }
 
   // Deterministic explanatory fallback
-  return `CONTRADICTION DETECTED: Event A (${candidate.eventA.location_text} at ${new Date(
-    candidate.eventA.event_timestamp
-  ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}) and Event B (${
-    candidate.eventB.location_text
-  } at ${new Date(candidate.eventB.event_timestamp).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  })}) cannot both be true. The locations are separated by ~${
+  return `CONTRADICTION DETECTED: Event A (${candidate.eventA.location_text} at ${formatTimeIST(
+    candidate.eventA.event_timestamp,
+    false
+  )}) and Event B (${candidate.eventB.location_text} at ${formatTimeIST(
+    candidate.eventB.event_timestamp,
+    false
+  )}) cannot both be true. The locations are separated by ~${
     candidate.distanceKm
   } km with an elapsed difference of only ${candidate.timeDiffMinutes} minutes (requiring ${
     candidate.speedRequiredKmh

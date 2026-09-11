@@ -24,6 +24,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { Document, Entity, FileType } from '@/types/investigation';
+import { formatTimeIST } from '@/lib/utils/formatDate';
 
 interface NexusVaultProps {
   documents: Document[];
@@ -220,8 +221,8 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
                     </div>
                   </div>
 
-                  <span className="text-[11px] font-mono text-slate-600 font-bold shrink-0">
-                    {new Date(doc.uploaded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST
+                  <span suppressHydrationWarning className="text-[11px] font-mono text-slate-600 font-bold shrink-0">
+                    {formatTimeIST(doc.uploaded_at, false)}
                   </span>
                 </div>
 

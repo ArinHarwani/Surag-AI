@@ -6,6 +6,7 @@ import { useInvestigation } from '@/lib/store/investigation-context';
 import { InterAgencyAlertBanner } from './InterAgencyAlertBanner';
 import { EvidenceDropzone } from '@/components/vault/EvidenceDropzone';
 import { NexusProvenanceInspector } from '@/components/nexus/NexusProvenanceInspector';
+import { formatTimeIST, formatDateTimeIST } from '@/lib/utils/formatDate';
 import {
   Shield,
   Upload,
@@ -208,7 +209,9 @@ export function KotaTerminal() {
                       <div className="flex items-center gap-2 text-[11px] text-slate-700 font-bold">
                         <span>BY: {doc.uploaded_by}</span>
                         <span>•</span>
-                        <span>{new Date(doc.uploaded_at).toLocaleTimeString()} IST</span>
+                        <span suppressHydrationWarning>
+                          {formatTimeIST(doc.uploaded_at)}
+                        </span>
                       </div>
                     </div>
 
@@ -296,7 +299,9 @@ export function KotaTerminal() {
                         <Radio className="w-3.5 h-3.5" />
                         <span>SOURCE: {tx.fromAgency.toUpperCase()} POLICE HQ</span>
                       </span>
-                      <span className="text-slate-700 font-bold">{new Date(tx.timestamp).toLocaleTimeString()} IST</span>
+                      <span suppressHydrationWarning className="text-slate-700 font-bold">
+                        {formatTimeIST(tx.timestamp)}
+                      </span>
                     </div>
                     <h4 className="text-sm font-black text-black">{tx.title}</h4>
                     <p className="text-xs text-slate-800 font-sans leading-relaxed font-medium">{tx.message}</p>
@@ -322,8 +327,8 @@ export function KotaTerminal() {
                     className="p-3.5 bg-white border-2 border-black rounded-lg space-y-2 text-xs shadow-brutal"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-black text-black font-mono">
-                        {new Date(evt.event_timestamp).toLocaleString()} IST
+                      <span suppressHydrationWarning className="font-black text-black font-mono">
+                        {formatDateTimeIST(evt.event_timestamp)}
                       </span>
                       <span className="px-2 py-0.5 rounded bg-black text-white text-[10px] font-black">
                         OFFSET: {evt.source_offset}

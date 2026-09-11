@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useInvestigation } from '@/lib/store/investigation-context';
 import { Event, TimestampConfidence } from '@/types/investigation';
+import { formatDateIST, formatTimeIST } from '@/lib/utils/formatDate';
 import {
   Clock,
   FileSearch,
@@ -150,16 +151,8 @@ export function CustomTimeline() {
 
           const isSelected = selectedEvent?.id === evt.id;
 
-          const formattedDate = new Date(evt.event_timestamp).toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-          });
-          const formattedTime = new Date(evt.event_timestamp).toLocaleTimeString('en-GB', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-          });
+          const formattedDate = formatDateIST(evt.event_timestamp);
+          const formattedTime = formatTimeIST(evt.event_timestamp, true);
 
           return (
             <div
@@ -198,8 +191,8 @@ export function CustomTimeline() {
                 {/* Event Header: Real-World Time & Badges */}
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-bold text-slate-200">
-                      {formattedDate} • {formattedTime} IST
+                    <span suppressHydrationWarning className="font-mono text-xs font-bold text-slate-200">
+                      {formattedDate} • {formattedTime}
                     </span>
                     {getConfidenceBadge(evt.event_timestamp_confidence)}
                   </div>

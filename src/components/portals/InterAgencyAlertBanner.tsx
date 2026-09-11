@@ -3,6 +3,7 @@
 import React from 'react';
 import { useInvestigation } from '@/lib/store/investigation-context';
 import { Radio, X, Eye } from 'lucide-react';
+import { formatTimeIST } from '@/lib/utils/formatDate';
 
 interface InterAgencyAlertBannerProps {
   currentAgency: 'jodhpur' | 'kota' | 'all';
@@ -37,8 +38,8 @@ export const InterAgencyAlertBanner: React.FC<InterAgencyAlertBannerProps> = ({ 
               <span className="px-2 py-0.5 rounded bg-black text-white text-[10px] uppercase font-black tracking-wider shadow-brutal">
                 REALTIME DISPATCH // {senderName} ➔ {recipientName}
               </span>
-              <span className="text-[10px] text-slate-700 font-bold">
-                {new Date(latestTransmission.timestamp).toLocaleTimeString()} IST
+              <span suppressHydrationWarning className="text-[10px] text-slate-700 font-bold">
+                {formatTimeIST(latestTransmission.timestamp)}
               </span>
             </div>
             <p className="font-sans font-bold text-xs mt-0.5 text-black">
