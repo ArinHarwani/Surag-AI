@@ -126,7 +126,11 @@ export const NexusShell: React.FC<NexusShellProps> = ({
 
           {currentTab === 'graph' && (
             <div className="h-full w-full min-h-[calc(100vh-60px)]">
-              <NexusGraph onOpenProvenance={handleOpenProvenance} />
+              <NexusGraph
+                onOpenProvenance={handleOpenProvenance}
+                onOpenUpload={() => setIsUploadOpen(true)}
+                onSelectTab={setCurrentTab}
+              />
             </div>
           )}
 

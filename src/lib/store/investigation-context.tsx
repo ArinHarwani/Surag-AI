@@ -82,7 +82,7 @@ interface InvestigationContextType {
 
 const InvestigationContext = createContext<InvestigationContextType | null>(null);
 
-const STORAGE_KEY = 'surag_fresh_case_state_v5';
+const STORAGE_KEY = 'surag_fusion_case_state_v7';
 
 export function InvestigationProvider({ children }: { children: React.ReactNode }) {
   const [caseInfo] = useState<Case>(INITIAL_CASE);
@@ -115,11 +115,11 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.documents) setDocuments(parsed.documents);
-        if (parsed.entities) setEntities(parsed.entities);
-        if (parsed.events) setEvents(parsed.events);
-        if (parsed.relationships) setRelationships(parsed.relationships);
-        if (parsed.contradictions) setContradictions(parsed.contradictions);
+        if (parsed.documents?.length) setDocuments(parsed.documents);
+        if (parsed.entities?.length) setEntities(parsed.entities);
+        if (parsed.events?.length) setEvents(parsed.events);
+        if (parsed.relationships?.length) setRelationships(parsed.relationships);
+        if (parsed.contradictions?.length) setContradictions(parsed.contradictions);
       }
     } catch (e) {
       console.warn('Failed to parse cached investigation state:', e);
