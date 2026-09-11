@@ -9,7 +9,9 @@ import {
   Clock,
   FileText,
   UserCheck,
+  Link2,
 } from 'lucide-react';
+import { AgencySlug } from '@/types/investigation';
 
 export type NexusNavTab =
   | 'overview'
@@ -23,16 +25,17 @@ export type NexusNavTab =
 interface NexusSidebarProps {
   currentTab: NexusNavTab;
   onSelectTab: (tab: NexusNavTab) => void;
-  scopedAgency?: 'all' | 'jodhpur' | 'kota';
+  scopedAgency?: AgencySlug | 'all';
   stats: {
     documentsCount: number;
     entitiesCount: number;
     flaggedContradictionsCount: number;
     suggestedCount: number;
+    pendingRequestsCount: number;
   };
+  onOpenRequestsPanel: () => void;
 }
 
-// Agency accent colors
 const AGENCY_ACCENT: Record<string, string> = {
   jodhpur: '#0284C7',
   kota: '#D97706',
@@ -44,6 +47,7 @@ export const NexusSidebar: React.FC<NexusSidebarProps> = ({
   onSelectTab,
   scopedAgency = 'all',
   stats,
+  onOpenRequestsPanel,
 }) => {
   const accentColor = AGENCY_ACCENT[scopedAgency] || '#111111';
 
@@ -53,18 +57,21 @@ export const NexusSidebar: React.FC<NexusSidebarProps> = ({
       label: 'CASE OVERVIEW',
       icon: LayoutGrid,
       badge: null,
+      isAlert: false,
     },
     {
       id: 'vault' as NexusNavTab,
       label: 'EVIDENCE VAULT',
       icon: FolderArchive,
       badge: `${stats.documentsCount}`,
+      isAlert: false,
     },
     {
       id: 'graph' as NexusNavTab,
       label: 'ENTITY GRAPH',
       icon: Network,
       badge: `${stats.entitiesCount}`,
+      isAlert: false,
     },
     {
       id: 'contradictions' as NexusNavTab,
@@ -78,22 +85,24 @@ export const NexusSidebar: React.FC<NexusSidebarProps> = ({
       label: 'TIMELINE & GEO',
       icon: Clock,
       badge: 'SYNCED',
+      isAlert: false,
     },
     {
       id: 'authors' as NexusNavTab,
       label: 'EVIDENCE AUTHORS',
       icon: UserCheck,
       badge: stats.documentsCount > 0 ? 'ACTIVE' : null,
+      isAlert: false,
     },
     {
       id: 'dossier' as NexusNavTab,
       label: 'DOSSIER & PROVENANCE',
       icon: FileText,
       badge: 'CITED',
+      isAlert: false,
     },
   ];
 
-  // Agency label text for the sidebar tag
   const agencyLabel =
     scopedAgency === 'jodhpur'
       ? 'JODHPUR HQ'
@@ -103,7 +112,6 @@ export const NexusSidebar: React.FC<NexusSidebarProps> = ({
 
   return (
     <aside className="w-60 bg-[#EAE6DD] border-r-2 border-black flex flex-col justify-between shrink-0 h-full select-none z-10 font-mono text-black overflow-y-auto">
-      {/* Navigation Desk Section */}
       <div className="p-3 space-y-2">
         {/* Sidebar Header */}
         <div className="text-[10px] font-black uppercase tracking-widest text-slate-600 px-2 py-1.5 border-b border-black/15 flex items-center justify-between">
@@ -161,6 +169,33 @@ export const NexusSidebar: React.FC<NexusSidebarProps> = ({
         </div>
       </div>
 
+      {/* Bottom: Incoming Connection Requests */}
+      <div className="p-3 border-t-2 border-black shrink-0">
+        <button
+          id="sidebar-btn-connection-requests"
+          onClick={onOpenRequestsPanel}
+          className={`w-full text-left px-3 py-2.5 text-xs font-black tracking-wider flex items-center justify-between transition-all border hover:bg-white hover:border-black/30 ${
+            stats.pendingRequestsCount > 0
+              ? 'bg-amber-50 border-amber-500'
+              : 'bg-transparent border-transparent'
+          }`}
+        >
+          <div className="flex items-center space-x-2.5">
+            <Link2
+              className="w-4 h-4"
+              style={{ color: stats.pendingRequestsCount > 0 ? '#D97706' : '#475569' }}
+            />
+            <span className={stats.pendingRequestsCount > 0 ? 'text-amber-800' : 'text-slate-800'}>
+              INCOMING REQUESTS
+            </span>
+          </div>
+          {stats.pendingRequestsCount > 0 && (
+            <span className="text-[10px] px-1.5 py-0.5 font-mono font-black bg-amber-500 text-white animate-pulse">
+              {stats.pendingRequestsCount} NEW
+            </span>
+          )}
+        </button>
+      </div>
     </aside>
   );
 };

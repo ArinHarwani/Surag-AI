@@ -47,12 +47,19 @@ EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
+DO $$ BEGIN
+    CREATE TYPE connection_request_status AS ENUM ('pending', 'accepted', 'rejected');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 -- 3. TABLES
 
 -- cases
 CREATE TABLE IF NOT EXISTS cases (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
+    filing_agency_id UUID REFERENCES agencies(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -143,12 +150,26 @@ CREATE TABLE IF NOT EXISTS contradictions (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- connection_requests  (cross-agency case access control)
+CREATE TABLE IF NOT EXISTS connection_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    case_id UUID NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+    requesting_agency_id UUID NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
+    target_agency_id UUID NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
+    case_brief_snapshot TEXT,
+    status connection_request_status DEFAULT 'pending',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    responded_at TIMESTAMPTZ
+);
+
 -- 4. INDEXES
 CREATE INDEX IF NOT EXISTS idx_documents_case ON documents(case_id);
 CREATE INDEX IF NOT EXISTS idx_events_case ON events(case_id);
 CREATE INDEX IF NOT EXISTS idx_entities_case ON entities(case_id);
 CREATE INDEX IF NOT EXISTS idx_relationships_case ON relationships(case_id);
 CREATE INDEX IF NOT EXISTS idx_contradictions_case ON contradictions(case_id);
+CREATE INDEX IF NOT EXISTS idx_connection_requests_case ON connection_requests(case_id);
+CREATE INDEX IF NOT EXISTS idx_connection_requests_target ON connection_requests(target_agency_id, status);
 
 -- 5. REALTIME PUBLICATION ENABLEMENT
 ALTER PUBLICATION supabase_realtime ADD TABLE events;
@@ -156,3 +177,11 @@ ALTER PUBLICATION supabase_realtime ADD TABLE relationships;
 ALTER PUBLICATION supabase_realtime ADD TABLE contradictions;
 ALTER PUBLICATION supabase_realtime ADD TABLE documents;
 ALTER PUBLICATION supabase_realtime ADD TABLE entities;
+ALTER PUBLICATION supabase_realtime ADD TABLE connection_requests;
+
+-- 6. ROW LEVEL SECURITY (stubs — enforce in production)
+-- An agency may view a case if:
+--   (a) it is the filing agency, OR
+--   (b) there is an accepted connection_request with their agency_id
+-- ALTER TABLE cases ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY "Agency case access" ON cases USING ( ... );

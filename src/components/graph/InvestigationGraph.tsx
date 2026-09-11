@@ -80,11 +80,13 @@ export function InvestigationGraph() {
     let filteredEntities = entities;
 
     // Filter by agency if agency portal is selected
-    if (activeAgency !== 'all') {
+    if (activeAgency) {
       const targetAgencyId = agencies[activeAgency]?.id;
-      filteredEntities = entities.filter(
-        (e) => !e.agency_id || e.agency_id === targetAgencyId
-      );
+      if (targetAgencyId) {
+        filteredEntities = entities.filter(
+          (e) => !e.agency_id || e.agency_id === targetAgencyId
+        );
+      }
     }
 
     // Filter by entity type

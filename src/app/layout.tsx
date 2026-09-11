@@ -31,6 +31,7 @@ export default function RootLayout({
     >
       <body className="min-h-full bg-[#EFECE6] text-[#111111] flex flex-col font-mono selection:bg-[#F5C842] selection:text-black">
         <InvestigationProvider>{children}</InvestigationProvider>
+        <div id="modal-root" />
       </body>
     </html>
   );

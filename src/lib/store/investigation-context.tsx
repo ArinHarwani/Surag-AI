@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
-  Case,
   Agency,
   Document,
   Entity,
@@ -11,29 +10,32 @@ import {
   Contradiction,
   RelationshipStatus,
   ContradictionStatus,
+  ConnectionRequest,
+  AgencySlug,
 } from '@/types/investigation';
-import {
-  INITIAL_CASE,
-  AGENCIES,
-  INITIAL_DOCUMENTS,
-  INITIAL_ENTITIES,
-  INITIAL_EVENTS,
-  INITIAL_RELATIONSHIPS,
-  INITIAL_CONTRADICTIONS,
-} from '@/lib/data/initial-case-data';
 import { realtimeRelay } from '@/lib/supabase/client';
 import { extractDocumentIntelligence, explainContradiction } from '@/lib/ai/pipeline';
 import { findCandidateContradictions } from '@/lib/ai/deterministic-detector';
 
-export interface TransmissionAlert {
-  id: string;
-  fromAgency: 'jodhpur' | 'kota';
-  toAgency: 'jodhpur' | 'kota';
-  title: string;
-  message: string;
-  documentId?: string;
-  timestamp: number;
-}
+// ──────────────────────────────────────────────────────────────────────────────
+// Static agency config — no longer imported from a seed data file
+// ──────────────────────────────────────────────────────────────────────────────
+const AGENCIES: Record<AgencySlug, Agency> = {
+  jodhpur: {
+    id: 'agency-jodhpur-01',
+    name: 'Jodhpur Police Department',
+    slug: 'jodhpur',
+    color: '#0284c7',
+    badge: 'JODHPUR-HQ',
+  },
+  kota: {
+    id: 'agency-kota-01',
+    name: 'Kota Police Commissionerate',
+    slug: 'kota',
+    color: '#d97706',
+    badge: 'KOTA-CID',
+  },
+};
 
 interface ProvenanceFocus {
   documentId: string;
@@ -43,15 +45,25 @@ interface ProvenanceFocus {
   title?: string;
 }
 
-interface InvestigationContextType {
-  caseInfo: Case;
-  agencies: Record<string, Agency>;
+interface CaseState {
+  // Active case (filing agency + name, set on first ingest)
+  activeCaseId: string | null;
+  activeCaseName: string | null;
+  activeCaseFilingAgency: AgencySlug | null;
+  // All case data
   documents: Document[];
   entities: Entity[];
   events: Event[];
   relationships: Relationship[];
   contradictions: Contradiction[];
-  activeAgency: 'all' | 'jodhpur' | 'kota';
+  connectionRequests: ConnectionRequest[];
+}
+
+interface InvestigationContextType extends CaseState {
+  agencies: Record<AgencySlug, Agency>;
+
+  // UI selection state
+  activeAgency: AgencySlug | null;
   selectedEntity: Entity | null;
   selectedRelationship: Relationship | null;
   selectedEvent: Event | null;
@@ -60,230 +72,253 @@ interface InvestigationContextType {
   isProcessing: boolean;
   processingStatusText: string;
   isLiveSyncActive: boolean;
-  latestTransmission: TransmissionAlert | null;
-  transmissionsList: TransmissionAlert[];
+
+  // Derived: connection requests relevant to this portal
+  pendingIncomingRequests: ConnectionRequest[];
+  acceptedLinkedAgencies: AgencySlug[];
 
   // Actions
-  setActiveAgency: (agency: 'all' | 'jodhpur' | 'kota') => void;
+  setActiveAgency: (agency: AgencySlug | null) => void;
   setSelectedEntity: (entity: Entity | null) => void;
   setSelectedRelationship: (rel: Relationship | null) => void;
   setSelectedEvent: (event: Event | null) => void;
   setSelectedDocument: (doc: Document | null) => void;
   setProvenanceFocus: (focus: ProvenanceFocus | null) => void;
-  
-  // Intelligence Ingestion & HITL Confirmation
-  ingestDocument: (docData: Partial<Document> & { title: string; content_text: string; agency_slug: 'jodhpur' | 'kota'; file_type: Document['file_type']; media_url?: string }) => Promise<void>;
-  transmitToAgency: (fromAgency: 'jodhpur' | 'kota', toAgency: 'jodhpur' | 'kota', docId: string, note?: string) => void;
-  dismissTransmission: () => void;
+
+  // Intelligence Ingestion
+  ingestDocument: (docData: {
+    title: string;
+    content_text: string;
+    agency_slug: AgencySlug;
+    file_type: Document['file_type'];
+    media_url?: string;
+    uploaded_by?: string;
+    caseName?: string;
+  }) => Promise<void>;
+
+  // HITL confirmation
   updateRelationshipStatus: (relationshipId: string, status: RelationshipStatus) => void;
   updateContradictionStatus: (contradictionId: string, status: ContradictionStatus) => void;
-  resetToDefaultCase: () => void;
+
+  // Connection Requests
+  sendConnectionRequest: (
+    requestingAgency: AgencySlug,
+    targetAgency: AgencySlug,
+    briefSnapshot: string
+  ) => void;
+  respondToConnectionRequest: (
+    requestId: string,
+    response: 'accepted' | 'rejected',
+    currentPortalAgency: AgencySlug
+  ) => void;
+
+  // Case management
+  clearAllCaseData: () => void;
+
+  /**
+   * Access rule: can an agency view a case?
+   * Returns true if the agency is the filing agency OR has an accepted connection.
+   */
+  canAgencyViewCase: (agency: AgencySlug) => boolean;
 }
 
 const InvestigationContext = createContext<InvestigationContextType | null>(null);
 
-const STORAGE_KEY = 'surag_fusion_case_state_v8';
+const STORAGE_KEY = 'surag_fusion_case_state_v9';
+
+const EMPTY_CASE_STATE: CaseState = {
+  activeCaseId: null,
+  activeCaseName: null,
+  activeCaseFilingAgency: null,
+  documents: [],
+  entities: [],
+  events: [],
+  relationships: [],
+  contradictions: [],
+  connectionRequests: [],
+};
 
 export function InvestigationProvider({ children }: { children: React.ReactNode }) {
-  const [caseInfo] = useState<Case>(INITIAL_CASE);
-  const [agencies] = useState<Record<string, Agency>>(AGENCIES);
+  const [state, setState] = useState<CaseState>(EMPTY_CASE_STATE);
 
-  const [documents, setDocuments] = useState<Document[]>(INITIAL_DOCUMENTS);
-  const [entities, setEntities] = useState<Entity[]>(INITIAL_ENTITIES);
-  const [events, setEvents] = useState<Event[]>(INITIAL_EVENTS);
-  const [relationships, setRelationships] = useState<Relationship[]>(INITIAL_RELATIONSHIPS);
-  const [contradictions, setContradictions] = useState<Contradiction[]>(INITIAL_CONTRADICTIONS);
-
-  const [activeAgency, setActiveAgency] = useState<'all' | 'jodhpur' | 'kota'>('all');
+  const [activeAgency, setActiveAgency] = useState<AgencySlug | null>(null);
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
   const [selectedRelationship, setSelectedRelationship] = useState<Relationship | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [provenanceFocus, setProvenanceFocus] = useState<ProvenanceFocus | null>(null);
 
-  const [latestTransmission, setLatestTransmission] = useState<TransmissionAlert | null>(null);
-  const [transmissionsList, setTransmissionsList] = useState<TransmissionAlert[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStatusText, setProcessingStatusText] = useState('');
+  const [isLiveSyncActive, setIsLiveSyncActive] = useState(true);
 
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [processingStatusText, setProcessingStatusText] = useState<string>('');
-  const [isLiveSyncActive, setIsLiveSyncActive] = useState<boolean>(true);
+  // ── Persist & hydrate ──────────────────────────────────────────────────────
+  const persistState = useCallback((s: CaseState) => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+    } catch (e) {
+      console.warn('Storage quota exceeded:', e);
+    }
+  }, []);
 
-  // Load from local storage if previously modified
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.documents?.length) setDocuments(parsed.documents);
-        if (parsed.entities?.length) setEntities(parsed.entities);
-        if (parsed.events?.length) setEvents(parsed.events);
-        if (parsed.relationships?.length) setRelationships(parsed.relationships);
-        if (parsed.contradictions?.length) setContradictions(parsed.contradictions);
+        const parsed = JSON.parse(saved) as Partial<CaseState>;
+        setState((prev) => ({
+          ...prev,
+          ...parsed,
+          // Ensure arrays are always arrays
+          documents: parsed.documents ?? [],
+          entities: parsed.entities ?? [],
+          events: parsed.events ?? [],
+          relationships: parsed.relationships ?? [],
+          contradictions: parsed.contradictions ?? [],
+          connectionRequests: parsed.connectionRequests ?? [],
+        }));
       }
     } catch (e) {
       console.warn('Failed to parse cached investigation state:', e);
     }
   }, []);
 
-  // Save changes to local storage
-  const persistState = useCallback(
-    (
-      docs: Document[],
-      ents: Entity[],
-      evts: Event[],
-      rels: Relationship[],
-      cons: Contradiction[]
-    ) => {
-      if (typeof window === 'undefined') return;
-      try {
-        localStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify({
-            documents: docs,
-            entities: ents,
-            events: evts,
-            relationships: rels,
-            contradictions: cons,
-          })
-        );
-      } catch (e) {
-        console.warn('Storage quota exceeded:', e);
-      }
-    },
-    []
-  );
-
-  // Subscribe to Realtime Cross-Tab & Cross-Agency broadcasts
+  // ── Realtime cross-tab sync ────────────────────────────────────────────────
   useEffect(() => {
     const unsubscribe = realtimeRelay.subscribe((eventName, payload: any) => {
       if (!payload) return;
 
       if (eventName === 'DOCUMENT_INGESTED') {
-        setDocuments((prev) => [payload.document, ...prev.filter((d) => d.id !== payload.document.id)]);
-        setEntities((prev) => {
-          const newOnes = (payload.newEntities || []).filter(
-            (ne: Entity) => !prev.some((pe) => pe.id === ne.id || pe.name.toLowerCase() === ne.name.toLowerCase())
-          );
-          return [...prev, ...newOnes];
-        });
-        setEvents((prev) => {
-          const newEvts = (payload.newEvents || []).filter(
-            (ne: Event) => !prev.some((pe) => pe.id === ne.id)
-          );
-          return [...prev, ...newEvts];
-        });
-        setRelationships((prev) => {
-          const newRels = (payload.newRelationships || []).filter(
-            (nr: Relationship) => !prev.some((pr) => pr.id === nr.id)
-          );
-          return [...prev, ...newRels];
-        });
-        if (payload.newContradictions?.length) {
-          setContradictions((prev) => {
-            const newCons = (payload.newContradictions || []).filter(
-              (nc: Contradiction) => !prev.some((pc) => pc.id === nc.id)
-            );
-            return [...prev, ...newCons];
-          });
-        }
-
-        // Automatic cross-agency transmission notification
-        if (payload.fromAgency) {
-          const opposite = payload.fromAgency === 'jodhpur' ? 'kota' : 'jodhpur';
-          const alert: TransmissionAlert = {
-            id: `tx-${Date.now()}`,
-            fromAgency: payload.fromAgency,
-            toAgency: opposite,
-            title: payload.document.title,
-            message: `${payload.fromAgency.toUpperCase()} POLICE deposited and dispatched new classified evidence: "${payload.document.title}". Extracted ${payload.newEntities?.length || 0} entities and ${payload.newEvents?.length || 0} timeline events.`,
-            documentId: payload.document.id,
-            timestamp: Date.now(),
+        setState((prev) => {
+          const newDocs = [
+            { ...payload.document, status: 'processed' as const },
+            ...prev.documents.filter((d) => d.id !== payload.document.id),
+          ];
+          const newEnts = [
+            ...prev.entities,
+            ...(payload.newEntities || []).filter(
+              (ne: Entity) => !prev.entities.some((pe) => pe.id === ne.id)
+            ),
+          ];
+          const newEvts = [
+            ...prev.events,
+            ...(payload.newEvents || []).filter(
+              (ne: Event) => !prev.events.some((pe) => pe.id === ne.id)
+            ),
+          ];
+          const newRels = [
+            ...prev.relationships,
+            ...(payload.newRelationships || []).filter(
+              (nr: Relationship) => !prev.relationships.some((pr) => pr.id === nr.id)
+            ),
+          ];
+          const newCons = [
+            ...prev.contradictions,
+            ...(payload.newContradictions || []).filter(
+              (nc: Contradiction) => !prev.contradictions.some((pc) => pc.id === nc.id)
+            ),
+          ];
+          const next: CaseState = {
+            ...prev,
+            documents: newDocs,
+            entities: newEnts,
+            events: newEvts,
+            relationships: newRels,
+            contradictions: newCons,
+            // If this is the first doc, set the case meta from the broadcast
+            activeCaseId: prev.activeCaseId ?? payload.caseId ?? null,
+            activeCaseName: prev.activeCaseName ?? payload.caseName ?? null,
+            activeCaseFilingAgency:
+              prev.activeCaseFilingAgency ?? payload.filingAgency ?? null,
           };
-          setLatestTransmission(alert);
-          setTransmissionsList((prev) => [alert, ...prev]);
-        }
-      } else if (eventName === 'AGENCY_TRANSMISSION') {
-        const alert: TransmissionAlert = {
-          id: payload.id || `tx-${Date.now()}`,
-          fromAgency: payload.fromAgency,
-          toAgency: payload.toAgency,
-          title: payload.title,
-          message: payload.message,
-          documentId: payload.documentId,
-          timestamp: payload.timestamp || Date.now(),
-        };
-        setLatestTransmission(alert);
-        setTransmissionsList((prev) => [alert, ...prev]);
+          persistState(next);
+          return next;
+        });
       } else if (eventName === 'RELATIONSHIP_UPDATED') {
-        setRelationships((prev) =>
-          prev.map((r) => (r.id === payload.relationshipId ? { ...r, status: payload.status } : r))
-        );
+        setState((prev) => {
+          const next = {
+            ...prev,
+            relationships: prev.relationships.map((r) =>
+              r.id === payload.relationshipId ? { ...r, status: payload.status } : r
+            ),
+          };
+          persistState(next);
+          return next;
+        });
       } else if (eventName === 'CONTRADICTION_UPDATED') {
-        setContradictions((prev) =>
-          prev.map((c) => (c.id === payload.contradictionId ? { ...c, status: payload.status } : c))
-        );
+        setState((prev) => {
+          const next = {
+            ...prev,
+            contradictions: prev.contradictions.map((c) =>
+              c.id === payload.contradictionId ? { ...c, status: payload.status } : c
+            ),
+          };
+          persistState(next);
+          return next;
+        });
+      } else if (eventName === 'CONNECTION_REQUEST_SENT') {
+        const req: ConnectionRequest = payload.request;
+        setState((prev) => {
+          if (prev.connectionRequests.some((r) => r.id === req.id)) return prev;
+          const next = {
+            ...prev,
+            connectionRequests: [req, ...prev.connectionRequests],
+          };
+          persistState(next);
+          return next;
+        });
+      } else if (eventName === 'CONNECTION_REQUEST_RESPONDED') {
+        setState((prev) => {
+          const next = {
+            ...prev,
+            connectionRequests: prev.connectionRequests.map((r) =>
+              r.id === payload.requestId
+                ? { ...r, status: payload.status, responded_at: payload.responded_at }
+                : r
+            ),
+          };
+          persistState(next);
+          return next;
+        });
       } else if (eventName === 'STATE_RESET') {
-        setDocuments(INITIAL_DOCUMENTS);
-        setEntities(INITIAL_ENTITIES);
-        setEvents(INITIAL_EVENTS);
-        setRelationships(INITIAL_RELATIONSHIPS);
-        setContradictions(INITIAL_CONTRADICTIONS);
-        setLatestTransmission(null);
-        setTransmissionsList([]);
-        localStorage.removeItem(STORAGE_KEY);
+        setState(EMPTY_CASE_STATE);
+        if (typeof window !== 'undefined') localStorage.removeItem(STORAGE_KEY);
       }
     });
 
     setIsLiveSyncActive(true);
     return () => unsubscribe();
-  }, []);
+  }, [persistState]);
 
-  // Transmit dossier or message from one agency to another
-  const transmitToAgency = (
-    fromAgency: 'jodhpur' | 'kota',
-    toAgency: 'jodhpur' | 'kota',
-    docId: string,
-    note?: string
-  ) => {
-    const doc = documents.find((d) => d.id === docId);
-    const alert: TransmissionAlert = {
-      id: `tx-${Date.now()}`,
-      fromAgency,
-      toAgency,
-      title: doc?.title || 'Classified Intelligence Transfer',
-      message: note || `Urgent intelligence lead forwarded from ${fromAgency.toUpperCase()} to ${toAgency.toUpperCase()} sector command.`,
-      documentId: docId,
-      timestamp: Date.now(),
-    };
-
-    setLatestTransmission(alert);
-    setTransmissionsList((prev) => [alert, ...prev]);
-    realtimeRelay.publish('AGENCY_TRANSMISSION', alert);
-  };
-
-  const dismissTransmission = () => {
-    setLatestTransmission(null);
-  };
-
-  // Ingest new document and run Track A Detective Extraction
+  // ── Ingest document ────────────────────────────────────────────────────────
   const ingestDocument = async (docData: {
     title: string;
     content_text: string;
-    agency_slug: 'jodhpur' | 'kota';
+    agency_slug: AgencySlug;
     file_type: Document['file_type'];
     media_url?: string;
     uploaded_by?: string;
+    caseName?: string;
   }) => {
     setIsProcessing(true);
     setProcessingStatusText('Hashing evidence & routing through detective intelligence pipeline...');
 
     try {
-      const agency = agencies[docData.agency_slug];
+      const agency = AGENCIES[docData.agency_slug];
+
+      // Determine case context — first ingest creates the case
+      const caseId = state.activeCaseId ?? `case-${Date.now()}`;
+      const caseName =
+        docData.caseName || state.activeCaseName || `Case opened: ${docData.title}`;
+      const filingAgency: AgencySlug =
+        state.activeCaseFilingAgency ?? docData.agency_slug;
+
       const docId = `doc-${Date.now()}`;
       const newDoc: Document = {
         id: docId,
-        case_id: caseInfo.id,
+        case_id: caseId,
         agency_id: agency.id,
         uploaded_by: docData.uploaded_by || `${agency.name} (Field Unit)`,
         title: docData.title,
@@ -294,119 +329,143 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         uploaded_at: new Date().toISOString(),
       };
 
-      // Add document immediately in processing status
-      const updatedDocs = [newDoc, ...documents];
-      setDocuments(updatedDocs);
-
-      setProcessingStatusText('Extracting grounded entities, real-world timestamps & source offsets...');
-      const extraction = await extractDocumentIntelligence(newDoc, entities);
-
-      // Map extracted entities to full Entity records
-      const newEntityRecords: Entity[] = extraction.entities
-        .filter((raw) => !entities.some((e) => e.name.toLowerCase() === raw.name.toLowerCase()))
-        .map((raw, idx) => ({
-          id: `ent-${Date.now()}-${idx}`,
-          case_id: caseInfo.id,
-          agency_id: agency.id,
-          type: raw.type,
-          name: raw.name,
-          attributes: raw.attributes,
-          first_seen_at: new Date().toISOString(),
-        }));
-
-      const allEntities = [...entities, ...newEntityRecords];
-
-      // Map extracted events
-      const newEventRecords: Event[] = extraction.events.map((raw, idx) => ({
-        id: `evt-${Date.now()}-${idx}`,
-        case_id: caseInfo.id,
-        document_id: docId,
-        description: raw.description,
-        event_timestamp: raw.event_timestamp,
-        event_timestamp_confidence: raw.event_timestamp_confidence,
-        location_text: raw.location_text,
-        lat: raw.lat,
-        lng: raw.lng,
-        source_offset: raw.source_offset,
-        confidence: raw.confidence,
-        created_at: new Date().toISOString(),
+      // Optimistic add
+      setState((prev) => ({
+        ...prev,
+        activeCaseId: caseId,
+        activeCaseName: caseName,
+        activeCaseFilingAgency: filingAgency,
+        documents: [newDoc, ...prev.documents],
       }));
 
-      const allEvents = [...events, ...newEventRecords];
+      setProcessingStatusText('Extracting grounded entities, real-world timestamps & source offsets...');
+      const extraction = await extractDocumentIntelligence(newDoc, state.entities);
 
-      // Track A3: Relationship & Connection Builder (AI suggests, human confirms)
-      const newRelationshipRecords: Relationship[] = extraction.suggestedRelationships.map(
-        (raw, idx) => {
-          // Resolve source and target entities
-          const sourceEnt =
-            allEntities.find((e) => e.name.toLowerCase() === raw.source_entity_name.toLowerCase()) ||
-            allEntities[0];
-          const targetEnt =
-            allEntities.find((e) => e.name.toLowerCase() === raw.target_entity_name.toLowerCase()) ||
-            allEntities[1] ||
-            allEntities[0];
+      setState((prev) => {
+        const newEntityRecords: Entity[] = extraction.entities
+          .filter((raw) => !prev.entities.some((e) => e.name.toLowerCase() === raw.name.toLowerCase()))
+          .map((raw, idx) => ({
+            id: `ent-${Date.now()}-${idx}`,
+            case_id: caseId,
+            agency_id: agency.id,
+            type: raw.type,
+            name: raw.name,
+            attributes: raw.attributes,
+            first_seen_at: new Date().toISOString(),
+          }));
 
-          return {
-            id: `rel-${Date.now()}-${idx}`,
-            case_id: caseInfo.id,
-            source_entity_id: sourceEnt ? sourceEnt.id : 'ent-0',
-            target_entity_id: targetEnt ? targetEnt.id : 'ent-1',
-            relationship_type: raw.relationship_type || 'CONNECTED_TO',
-            description: raw.description,
-            confidence: raw.confidence,
-            status: 'ai_suggested', // Non-negotiable rule: defaults to ai_suggested
-            source_document_ids: [docId],
-            explanation: raw.explanation,
-            created_at: new Date().toISOString(),
-          };
-        }
-      );
+        const allEntities = [...prev.entities, ...newEntityRecords];
 
-      const allRelationships = [...relationships, ...newRelationshipRecords];
-
-      // Track A4: Deterministic-first Contradiction Detector
-      setProcessingStatusText('Executing deterministic temporal & spatial velocity conflict matrix...');
-      const candidateContradictions = findCandidateContradictions(allEvents, allEntities, contradictions);
-      const newContradictionRecords: Contradiction[] = [];
-
-      for (let i = 0; i < candidateContradictions.length; i++) {
-        const candidate = candidateContradictions[i];
-        const explanation = await explainContradiction(candidate);
-
-        newContradictionRecords.push({
-          id: `con-${Date.now()}-${i}`,
-          case_id: caseInfo.id,
-          event_a_id: candidate.eventA.id,
-          event_b_id: candidate.eventB.id,
-          type: candidate.type,
-          description: explanation,
-          status: 'flagged',
+        const newEventRecords: Event[] = extraction.events.map((raw, idx) => ({
+          id: `evt-${Date.now()}-${idx}`,
+          case_id: caseId,
+          document_id: docId,
+          description: raw.description,
+          event_timestamp: raw.event_timestamp,
+          event_timestamp_confidence: raw.event_timestamp_confidence,
+          location_text: raw.location_text,
+          lat: raw.lat,
+          lng: raw.lng,
+          source_offset: raw.source_offset,
+          confidence: raw.confidence,
           created_at: new Date().toISOString(),
+        }));
+
+        const allEvents = [...prev.events, ...newEventRecords];
+
+        const newRelationshipRecords: Relationship[] = extraction.suggestedRelationships.map(
+          (raw, idx) => {
+            const sourceEnt =
+              allEntities.find((e) => e.name.toLowerCase() === raw.source_entity_name.toLowerCase()) ||
+              allEntities[0];
+            const targetEnt =
+              allEntities.find((e) => e.name.toLowerCase() === raw.target_entity_name.toLowerCase()) ||
+              allEntities[1] ||
+              allEntities[0];
+            return {
+              id: `rel-${Date.now()}-${idx}`,
+              case_id: caseId,
+              source_entity_id: sourceEnt?.id ?? 'ent-0',
+              target_entity_id: targetEnt?.id ?? 'ent-1',
+              relationship_type: raw.relationship_type || 'CONNECTED_TO',
+              description: raw.description,
+              confidence: raw.confidence,
+              status: 'ai_suggested' as const,
+              source_document_ids: [docId],
+              explanation: raw.explanation,
+              created_at: new Date().toISOString(),
+            };
+          }
+        );
+
+        const allRelationships = [...prev.relationships, ...newRelationshipRecords];
+
+        // Contradiction detection runs synchronously on existing events
+        const candidateContradictions = findCandidateContradictions(
+          allEvents,
+          allEntities,
+          prev.contradictions
+        );
+        const newContradictionRecords: Contradiction[] = candidateContradictions.map((c, i) => ({
+          id: `con-${Date.now()}-${i}`,
+          case_id: caseId,
+          event_a_id: c.eventA.id,
+          event_b_id: c.eventB.id,
+          type: c.type,
+          description: `CONTRADICTION DETECTED between ${c.eventA.location_text} and ${c.eventB.location_text}. Distance: ${c.distanceKm}km, elapsed: ${c.timeDiffMinutes}min.`,
+          status: 'flagged' as const,
+          created_at: new Date().toISOString(),
+        }));
+
+        const allContradictions = [
+          ...prev.contradictions,
+          ...newContradictionRecords.filter(
+            (nc) => !prev.contradictions.some((pc) => pc.id === nc.id)
+          ),
+        ];
+
+        const finalDocs = prev.documents.map((d) =>
+          d.id === docId ? { ...d, status: 'processed' as const } : d
+        );
+        // If the optimistic doc isn't in state yet somehow, add it
+        const docAlreadyIn = finalDocs.some((d) => d.id === docId);
+        const processedDoc = { ...newDoc, status: 'processed' as const };
+        const updatedDocs = docAlreadyIn
+          ? finalDocs
+          : [processedDoc, ...finalDocs];
+
+        const next: CaseState = {
+          ...prev,
+          activeCaseId: caseId,
+          activeCaseName: caseName,
+          activeCaseFilingAgency: filingAgency,
+          documents: updatedDocs,
+          entities: allEntities,
+          events: allEvents,
+          relationships: allRelationships,
+          contradictions: allContradictions,
+        };
+
+        persistState(next);
+
+        // Broadcast for cross-tab sync
+        realtimeRelay.publish('DOCUMENT_INGESTED', {
+          caseId,
+          caseName,
+          filingAgency,
+          fromAgency: docData.agency_slug,
+          document: processedDoc,
+          newEntities: newEntityRecords,
+          newEvents: newEventRecords,
+          newRelationships: newRelationshipRecords,
+          newContradictions: newContradictionRecords,
         });
-      }
 
-      const allContradictions = [...contradictions, ...newContradictionRecords];
-
-      // Mark document as processed
-      const finalDocs = updatedDocs.map((d) => (d.id === docId ? { ...d, status: 'processed' as const } : d));
-
-      setDocuments(finalDocs);
-      setEntities(allEntities);
-      setEvents(allEvents);
-      setRelationships(allRelationships);
-      setContradictions(allContradictions);
-
-      persistState(finalDocs, allEntities, allEvents, allRelationships, allContradictions);
-
-      // Broadcast to Realtime Channel with agency attribution
-      realtimeRelay.publish('DOCUMENT_INGESTED', {
-        fromAgency: docData.agency_slug,
-        document: { ...newDoc, status: 'processed' },
-        newEntities: newEntityRecords,
-        newEvents: newEventRecords,
-        newRelationships: newRelationshipRecords,
-        newContradictions: newContradictionRecords,
+        return next;
       });
+
+      // Async explain contradictions in the background (non-blocking)
+      // (We already set them with a deterministic description above)
     } catch (error) {
       console.error('Ingestion failed:', error);
     } finally {
@@ -415,48 +474,131 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
     }
   };
 
-  // Human-in-the-loop (HITL) confirmation
+  // ── HITL updates ───────────────────────────────────────────────────────────
   const updateRelationshipStatus = (relationshipId: string, status: RelationshipStatus) => {
-    const updated = relationships.map((r) => (r.id === relationshipId ? { ...r, status } : r));
-    setRelationships(updated);
-    persistState(documents, entities, events, updated, contradictions);
-    realtimeRelay.publish('RELATIONSHIP_UPDATED', { relationshipId, status });
+    setState((prev) => {
+      const next = {
+        ...prev,
+        relationships: prev.relationships.map((r) =>
+          r.id === relationshipId ? { ...r, status } : r
+        ),
+      };
+      persistState(next);
+      realtimeRelay.publish('RELATIONSHIP_UPDATED', { relationshipId, status });
+      return next;
+    });
   };
 
   const updateContradictionStatus = (contradictionId: string, status: ContradictionStatus) => {
-    const updated = contradictions.map((c) => (c.id === contradictionId ? { ...c, status } : c));
-    setContradictions(updated);
-    persistState(documents, entities, events, relationships, updated);
-    realtimeRelay.publish('CONTRADICTION_UPDATED', { contradictionId, status });
+    setState((prev) => {
+      const next = {
+        ...prev,
+        contradictions: prev.contradictions.map((c) =>
+          c.id === contradictionId ? { ...c, status } : c
+        ),
+      };
+      persistState(next);
+      realtimeRelay.publish('CONTRADICTION_UPDATED', { contradictionId, status });
+      return next;
+    });
   };
 
-  const resetToDefaultCase = () => {
-    setDocuments(INITIAL_DOCUMENTS);
-    setEntities(INITIAL_ENTITIES);
-    setEvents(INITIAL_EVENTS);
-    setRelationships(INITIAL_RELATIONSHIPS);
-    setContradictions(INITIAL_CONTRADICTIONS);
+  // ── Connection Requests ────────────────────────────────────────────────────
+  const sendConnectionRequest = (
+    requestingAgency: AgencySlug,
+    targetAgency: AgencySlug,
+    briefSnapshot: string
+  ) => {
+    if (!state.activeCaseId || !state.activeCaseName) return;
+
+    const req: ConnectionRequest = {
+      id: `creq-${Date.now()}`,
+      case_id: state.activeCaseId,
+      case_name: state.activeCaseName,
+      requesting_agency_slug: requestingAgency,
+      target_agency_slug: targetAgency,
+      case_brief_snapshot: briefSnapshot,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
+
+    setState((prev) => {
+      const next = {
+        ...prev,
+        connectionRequests: [req, ...prev.connectionRequests],
+      };
+      persistState(next);
+      return next;
+    });
+
+    realtimeRelay.publish('CONNECTION_REQUEST_SENT', { request: req });
+  };
+
+  const respondToConnectionRequest = (
+    requestId: string,
+    response: 'accepted' | 'rejected',
+    _currentPortalAgency: AgencySlug
+  ) => {
+    const responded_at = new Date().toISOString();
+    setState((prev) => {
+      const next = {
+        ...prev,
+        connectionRequests: prev.connectionRequests.map((r) =>
+          r.id === requestId ? { ...r, status: response, responded_at } : r
+        ),
+      };
+      persistState(next);
+      return next;
+    });
+    realtimeRelay.publish('CONNECTION_REQUEST_RESPONDED', {
+      requestId,
+      status: response,
+      responded_at,
+    });
+  };
+
+  // ── Case Management ────────────────────────────────────────────────────────
+  const clearAllCaseData = () => {
+    setState(EMPTY_CASE_STATE);
     setSelectedEntity(null);
     setSelectedRelationship(null);
     setSelectedEvent(null);
     setSelectedDocument(null);
     setProvenanceFocus(null);
-    setLatestTransmission(null);
-    setTransmissionsList([]);
-    localStorage.removeItem(STORAGE_KEY);
+    if (typeof window !== 'undefined') localStorage.removeItem(STORAGE_KEY);
     realtimeRelay.publish('STATE_RESET', {});
   };
+
+  // ── Access rule ────────────────────────────────────────────────────────────
+  const canAgencyViewCase = (agency: AgencySlug): boolean => {
+    if (!state.activeCaseId) return false;
+    if (state.activeCaseFilingAgency === agency) return true;
+    return state.connectionRequests.some(
+      (r) =>
+        r.status === 'accepted' &&
+        r.case_id === state.activeCaseId &&
+        (r.requesting_agency_slug === agency || r.target_agency_slug === agency)
+    );
+  };
+
+  // ── Derived ────────────────────────────────────────────────────────────────
+  const pendingIncomingRequests = (portalAgency: AgencySlug | null) =>
+    portalAgency
+      ? state.connectionRequests.filter(
+          (r) => r.target_agency_slug === portalAgency && r.status === 'pending'
+        )
+      : [];
+
+  const acceptedLinkedAgencies = state.connectionRequests
+    .filter((r) => r.status === 'accepted' && r.case_id === state.activeCaseId)
+    .flatMap((r) => [r.requesting_agency_slug, r.target_agency_slug])
+    .filter((slug, i, arr) => arr.indexOf(slug) === i) as AgencySlug[];
 
   return (
     <InvestigationContext.Provider
       value={{
-        caseInfo,
-        agencies,
-        documents,
-        entities,
-        events,
-        relationships,
-        contradictions,
+        ...state,
+        agencies: AGENCIES,
         activeAgency,
         selectedEntity,
         selectedRelationship,
@@ -466,8 +608,8 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         isProcessing,
         processingStatusText,
         isLiveSyncActive,
-        latestTransmission,
-        transmissionsList,
+        pendingIncomingRequests: pendingIncomingRequests(activeAgency),
+        acceptedLinkedAgencies,
         setActiveAgency,
         setSelectedEntity,
         setSelectedRelationship,
@@ -475,11 +617,12 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         setSelectedDocument,
         setProvenanceFocus,
         ingestDocument,
-        transmitToAgency,
-        dismissTransmission,
         updateRelationshipStatus,
         updateContradictionStatus,
-        resetToDefaultCase,
+        sendConnectionRequest,
+        respondToConnectionRequest,
+        clearAllCaseData,
+        canAgencyViewCase,
       }}
     >
       {children}

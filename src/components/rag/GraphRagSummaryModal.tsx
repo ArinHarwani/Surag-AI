@@ -20,7 +20,7 @@ interface GraphRagSummaryModalProps {
 
 export function GraphRagSummaryModal({ onClose }: GraphRagSummaryModalProps) {
   const {
-    caseInfo,
+    activeCaseName,
     entities,
     relationships,
     events,
@@ -38,7 +38,7 @@ export function GraphRagSummaryModal({ onClose }: GraphRagSummaryModalProps) {
     setIsLoading(true);
     try {
       const summary = await generateGraphRagSummary(
-        caseInfo.name,
+        activeCaseName || 'ACTIVE CASE',
         entities,
         relationships,
         events,
@@ -155,7 +155,7 @@ export function GraphRagSummaryModal({ onClose }: GraphRagSummaryModalProps) {
                 </span>
               </div>
               <h3 className="text-sm font-bold text-slate-100 mt-1">
-                {caseInfo.name} — Joint Synthesis
+                {activeCaseName || 'Active Case'} — Joint Synthesis
               </h3>
             </div>
           </div>

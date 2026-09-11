@@ -5,27 +5,22 @@ import {
   FolderArchive, 
   Network, 
   AlertOctagon, 
-  Lock, 
-  UploadCloud, 
   Clock, 
-  FileText, 
-  Activity, 
   Sparkles,
   ArrowRight, 
   ExternalLink,
   ChevronRight,
-  ShieldAlert,
   UserCheck,
-  Eye,
-  MapPin,
-  Car,
-  User,
-  Radio,
-  Zap,
-  ShieldCheck
+  Link2,
+  CheckCircle2,
 } from 'lucide-react';
-import { Document, Entity, Relationship, Contradiction, Event } from '@/types/investigation';
+import { Document, Entity, Relationship, Contradiction, Event, AgencySlug } from '@/types/investigation';
 import { formatTimeIST } from '@/lib/utils/formatDate';
+
+const AGENCY_LABELS: Record<AgencySlug, string> = {
+  jodhpur: 'Jodhpur Police HQ',
+  kota: 'Kota Police CID',
+};
 
 interface NexusOverviewProps {
   documents: Document[];
@@ -33,7 +28,12 @@ interface NexusOverviewProps {
   relationships: Relationship[];
   contradictions: Contradiction[];
   events: Event[];
+  scopedAgency: AgencySlug;
+  acceptedLinkedAgencies: AgencySlug[];
+  activeCaseName: string | null;
+  activeCaseFilingAgency: AgencySlug | null;
   onOpenUpload: () => void;
+  onOpenConnect: () => void;
   onSelectTab: (tab: any) => void;
   onConfirmRelationship: (relId: string) => void;
   onDismissRelationship: (relId: string) => void;
@@ -46,7 +46,12 @@ export const NexusOverview: React.FC<NexusOverviewProps> = ({
   relationships,
   contradictions,
   events,
+  scopedAgency,
+  acceptedLinkedAgencies,
+  activeCaseName,
+  activeCaseFilingAgency,
   onOpenUpload,
+  onOpenConnect,
   onSelectTab,
   onConfirmRelationship,
   onDismissRelationship,
@@ -156,25 +161,40 @@ export const NexusOverview: React.FC<NexusOverviewProps> = ({
                 ACTIVE CASE
               </span>
               <span className="text-[#F5C842] font-black text-xs uppercase tracking-wider">
-                DUAL JURISDICTION // JODHPUR COMMISSIONERATE ↔ KOTA SIU
+                {activeCaseFilingAgency
+                  ? `FILED BY: ${AGENCY_LABELS[activeCaseFilingAgency]}${
+                      acceptedLinkedAgencies.length > 0
+                        ? ` ↔ LINKED: ${acceptedLinkedAgencies.map((a) => AGENCY_LABELS[a]).join(', ')}`
+                        : ''
+                    }`
+                  : 'SOLO INVESTIGATION'}
               </span>
+              {acceptedLinkedAgencies.length > 0 && (
+                <span className="flex items-center gap-1 text-[10px] font-black px-2 py-0.5 bg-emerald-500 text-white">
+                  <CheckCircle2 className="w-3 h-3" /> JOINT ACCESS ACTIVE
+                </span>
+              )}
             </div>
             <h1 className="text-2xl lg:text-3xl font-black uppercase tracking-tight text-white">
-              {documents[0]?.title ? documents[0].title.toUpperCase() : 'ACTIVE INVESTIGATION'}
+              {activeCaseName ?? (documents[0]?.title ? documents[0].title.toUpperCase() : 'ACTIVE INVESTIGATION')}
             </h1>
             <p className="text-xs text-slate-300 font-sans mt-1.5 max-w-3xl leading-relaxed">
-              {documents.length} evidence file{documents.length !== 1 ? 's' : ''} ingested across Jodhpur and Kota terminals.
-              Synchronized intelligence fusion and cryptographic audit active.
+              {documents.length} evidence file{documents.length !== 1 ? 's' : ''} ingested.
+              {acceptedLinkedAgencies.length > 0
+                ? ' Real-time joint sync active between both portals.'
+                : ' Private — share via REPORT/CONNECT TO to collaborate.'}
             </p>
           </div>
-          <div className="flex items-center space-x-3 shrink-0">
-            <button
-              onClick={onOpenUpload}
-              className="px-4 py-2.5 bg-[#F5C842] hover:bg-[#EAB308] text-black font-black text-xs border-2 border-black shadow-brutal flex items-center space-x-1.5 transition active:translate-x-0.5 active:translate-y-0.5"
-            >
-              <FolderArchive className="w-4 h-4 text-black" />
-              <span>+ ADD NEW CASE</span>
-            </button>
+          <div className="flex items-center space-x-3 shrink-0 flex-wrap gap-2">
+            {acceptedLinkedAgencies.length === 0 && (
+              <button
+                onClick={onOpenConnect}
+                className="px-4 py-2.5 bg-white hover:bg-slate-100 text-black font-black text-xs border-2 border-black shadow-brutal flex items-center space-x-1.5 transition active:translate-x-0.5 active:translate-y-0.5"
+              >
+                <Link2 className="w-4 h-4 text-black" />
+                <span>REPORT / CONNECT TO</span>
+              </button>
+            )}
             <button
               onClick={() => onSelectTab('dossier')}
               className="px-4 py-2.5 bg-white hover:bg-slate-100 text-black font-black text-xs border-2 border-black shadow-brutal flex items-center space-x-1.5 transition active:translate-x-0.5 active:translate-y-0.5"

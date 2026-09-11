@@ -1,4 +1,6 @@
 export type FileType = 'text' | 'image' | 'audio' | 'video';
+export type AgencySlug = 'jodhpur' | 'kota';
+export type ConnectionRequestStatus = 'pending' | 'accepted' | 'rejected';
 export type DocStatus = 'uploaded' | 'processing' | 'processed' | 'failed';
 export type TimestampConfidence = 'exact' | 'approximate' | 'inferred';
 export type EntityType = 'person' | 'vehicle' | 'location' | 'weapon' | 'object' | 'organization';
@@ -82,6 +84,18 @@ export interface Relationship {
   source_document_ids: string[];
   explanation?: string; // GraphRAG one-click citation
   created_at: string;
+}
+
+export interface ConnectionRequest {
+  id: string;
+  case_id: string;
+  case_name: string; // snapshot at time of request
+  requesting_agency_slug: AgencySlug;
+  target_agency_slug: AgencySlug;
+  case_brief_snapshot: string;
+  status: ConnectionRequestStatus;
+  created_at: string;
+  responded_at?: string;
 }
 
 export interface Contradiction {

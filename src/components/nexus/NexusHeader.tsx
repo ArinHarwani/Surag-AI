@@ -1,75 +1,71 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import {
   Shield,
-  Share2,
   RotateCcw,
-  ArrowLeftRight,
   FolderPlus,
+  Link2,
+  CheckCircle2,
 } from 'lucide-react';
 import { NexusNavTab } from './NexusSidebar';
+import { AgencySlug } from '@/types/investigation';
 
 interface NexusHeaderProps {
   currentTab?: NexusNavTab;
-  activeAgency: 'all' | 'jodhpur' | 'kota';
-  scopedAgency?: 'all' | 'jodhpur' | 'kota';
-  onSelectAgency: (agency: 'all' | 'jodhpur' | 'kota') => void;
+  scopedAgency: AgencySlug;
   onOpenUpload: () => void;
+  onOpenConnect: () => void;
   onResetCase: () => void;
   onSelectTab?: (tab: NexusNavTab) => void;
   isProcessing: boolean;
   processingText: string;
+  hasActiveCase: boolean;
+  hasExistingConnectionRequest: boolean;
+  acceptedLinkedAgencies: AgencySlug[];
+  activeCaseName: string | null;
 }
 
-// Branding config per agency
-const AGENCY_CONFIG = {
+const AGENCY_CONFIG: Record<AgencySlug, {
+  label: string;
+  sublabel: string;
+  accentColor: string;
+  badge: string;
+}> = {
   jodhpur: {
     label: 'JODHPUR POLICE HQ',
     sublabel: 'Tactical Command Portal // Sector RJ-19',
     accentColor: '#0284C7',
-    accentHover: '#0369A1',
-    partnerLabel: 'KOTA CID PORTAL',
-    partnerHref: '/kota',
-    partnerColor: '#D97706',
-    partnerBg: '#FEF3C7',
+    badge: 'JODHPUR-HQ',
   },
   kota: {
     label: 'KOTA POLICE CID',
     sublabel: 'Special Intelligence Unit // Sector RJ-24',
     accentColor: '#D97706',
-    accentHover: '#B45309',
-    partnerLabel: 'JODHPUR HQ PORTAL',
-    partnerHref: '/jodhpur',
-    partnerColor: '#0284C7',
-    partnerBg: '#E0F2FE',
-  },
-  all: {
-    label: 'SURAG-AI — JOINT FUSION DESK',
-    sublabel: 'Dual Agency Intelligence Command',
-    accentColor: '#111111',
-    accentHover: '#374151',
-    partnerLabel: '',
-    partnerHref: '/',
-    partnerColor: '#111111',
-    partnerBg: '#F5F5F5',
+    badge: 'KOTA-CID',
   },
 };
 
+const PARTNER_LABELS: Record<AgencySlug, string> = {
+  jodhpur: 'KOTA POLICE CID',
+  kota: 'JODHPUR POLICE HQ',
+};
+
 export const NexusHeader: React.FC<NexusHeaderProps> = ({
-  activeAgency,
   scopedAgency,
-  onSelectAgency,
   onOpenUpload,
+  onOpenConnect,
   onResetCase,
   isProcessing,
   processingText,
+  hasActiveCase,
+  hasExistingConnectionRequest,
+  acceptedLinkedAgencies,
+  activeCaseName,
 }) => {
-  // Use scopedAgency for branding if we're on a specific portal; fallback to 'all'
-  const portalAgency = scopedAgency && scopedAgency !== 'all' ? scopedAgency : 'all';
-  const cfg = AGENCY_CONFIG[portalAgency];
-  const isSpecificPortal = portalAgency !== 'all';
+  const cfg = AGENCY_CONFIG[scopedAgency];
+  const partnerLabel = PARTNER_LABELS[scopedAgency];
+  const isLinked = acceptedLinkedAgencies.length > 0;
 
   return (
     <header className="bg-[#EFECE6] border-b-2 border-black text-black px-5 py-3 sticky top-0 z-30 select-none font-mono w-full shadow-xs shrink-0">
@@ -78,8 +74,8 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
         {/* LEFT: Logo + Agency Identity */}
         <div className="flex items-center gap-4">
           <div
-            className="w-11 h-11 rounded-md flex items-center justify-center shadow-brutal border-2 border-black shrink-0 transition-transform hover:scale-105"
-            style={{ backgroundColor: isSpecificPortal ? cfg.accentColor : '#111111' }}
+            className="w-11 h-11 rounded-md flex items-center justify-center shadow-brutal border-2 border-black shrink-0"
+            style={{ backgroundColor: cfg.accentColor }}
           >
             <Shield className="w-6 h-6 text-white stroke-[2.2]" />
           </div>
@@ -87,53 +83,61 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
             <h1 className="text-xl sm:text-2xl font-black tracking-widest text-black uppercase leading-none font-mono">
               SURAG-AI
             </h1>
-            {isSpecificPortal && (
-              <div className="flex items-center gap-2 mt-0.5">
-                <span
-                  className="text-[10px] font-black px-2 py-0.5 border border-black text-white uppercase tracking-wider"
-                  style={{ backgroundColor: cfg.accentColor }}
-                >
-                  {cfg.label}
-                </span>
-                <span className="text-[10px] text-slate-600 font-bold hidden sm:block">
-                  {cfg.sublabel}
-                </span>
-              </div>
-            )}
+            <div className="flex items-center gap-2 mt-0.5">
+              <span
+                className="text-[10px] font-black px-2 py-0.5 border border-black text-white uppercase tracking-wider"
+                style={{ backgroundColor: cfg.accentColor }}
+              >
+                {cfg.label}
+              </span>
+              <span className="text-[10px] text-slate-600 font-bold hidden sm:block">
+                {cfg.sublabel}
+              </span>
+            </div>
           </div>
         </div>
 
         {/* RIGHT: Controls */}
         <div className="flex flex-wrap items-center gap-2.5">
 
-          {/* Sync Status Indicator */}
-          <div className="flex items-center space-x-2.5 bg-white border-2 border-black px-3 py-1.5 shadow-brutal text-xs">
-            <div className="flex items-center space-x-1.5">
-              <span className="text-slate-600 font-bold text-[11px]">JODHPUR:</span>
-              <span className="text-[#0284C7] font-black text-xs">99.4%</span>
+          {/* Linked Indicator — shown when a connection is accepted */}
+          {isLinked && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 border-2 border-emerald-600 text-emerald-800 text-xs font-black">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>LINKED WITH: {partnerLabel}</span>
             </div>
-            <span className="text-slate-400 font-bold">↔</span>
-            <div className="flex items-center space-x-1.5">
-              <span className="text-slate-600 font-bold text-[11px]">KOTA:</span>
-              <span className="text-[#D97706] font-black text-xs">100%</span>
-            </div>
+          )}
+
+          {/* Sync Status */}
+          <div className="flex items-center space-x-2 bg-white border-2 border-black px-3 py-1.5 shadow-brutal text-xs">
+            <span className="text-slate-600 font-bold text-[11px] uppercase">{cfg.badge}:</span>
+            <span className="font-black text-xs" style={{ color: cfg.accentColor }}>LIVE</span>
             <div className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
               <div className="bg-black text-[#F5C842] px-1.5 py-0.5 text-[9px] font-black uppercase border border-black">
-                SYNCED
+                {isLinked ? 'JOINT SYNC' : 'LOCAL SYNC'}
               </div>
             </div>
           </div>
 
-          {/* Portal Switcher — only shown on specific portals */}
-          {isSpecificPortal && (
-            <Link
-              href={cfg.partnerHref}
+          {/* REPORT / CONNECT TO — only shown when a case exists and not already requested */}
+          {hasActiveCase && !hasExistingConnectionRequest && !isLinked && (
+            <button
+              onClick={onOpenConnect}
+              title={`Send cross-agency connection request to ${partnerLabel}`}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 border-2 border-black shadow-brutal text-xs font-black transition active:translate-x-0.5 active:translate-y-0.5"
             >
-              <ArrowLeftRight className="w-3.5 h-3.5" style={{ color: cfg.partnerColor }} />
-              <span>SWITCH TO {cfg.partnerLabel}</span>
-            </Link>
+              <Link2 className="w-3.5 h-3.5 text-slate-700" />
+              <span>REPORT / CONNECT TO {partnerLabel}</span>
+            </button>
+          )}
+
+          {/* Pending request state */}
+          {hasExistingConnectionRequest && !isLinked && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border-2 border-amber-500 text-amber-800 text-xs font-black">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span>REQUEST PENDING — {partnerLabel}</span>
+            </div>
           )}
 
           {/* Add New Case Button */}
@@ -149,7 +153,7 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
           {/* Reset Demo Button */}
           <button
             onClick={onResetCase}
-            title="Reset Case to Initial Demo State"
+            title="Clear all case data"
             className="p-2 bg-white hover:bg-slate-100 text-black border-2 border-black shadow-brutal transition active:translate-x-0.5 active:translate-y-0.5"
           >
             <RotateCcw className="w-4 h-4" />

@@ -36,12 +36,14 @@ export function CustomTimeline() {
     let list = [...events];
 
     // Filter by agency if in agency view
-    if (activeAgency !== 'all') {
+    if (activeAgency) {
       const targetAgencyId = agencies[activeAgency]?.id;
-      list = list.filter((e) => {
-        const doc = documents.find((d) => d.id === e.document_id);
-        return doc?.agency_id === targetAgencyId;
-      });
+      if (targetAgencyId) {
+        list = list.filter((e) => {
+          const doc = documents.find((d) => d.id === e.document_id);
+          return doc?.agency_id === targetAgencyId;
+        });
+      }
     }
 
     // Filter by sector dropdown

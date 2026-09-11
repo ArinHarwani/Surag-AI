@@ -13,43 +13,50 @@ import { NexusDossier } from './NexusDossier';
 import { NexusAuthors } from './NexusAuthors';
 import { NexusProvenanceInspector } from './NexusProvenanceInspector';
 import { AddNewCaseModal } from './AddNewCaseModal';
+import { ConnectionRequestModal } from './ConnectionRequestModal';
+import { ConnectionRequestsPanel } from './ConnectionRequestsPanel';
+import { AgencySlug } from '@/types/investigation';
 
 interface NexusShellProps {
   initialTab?: NexusNavTab;
-  scopedAgency?: 'all' | 'jodhpur' | 'kota';
+  scopedAgency?: AgencySlug;
 }
 
 export const NexusShell: React.FC<NexusShellProps> = ({
   initialTab = 'overview',
-  scopedAgency,
+  scopedAgency = 'jodhpur',
 }) => {
   const [currentTab, setCurrentTab] = useState<NexusNavTab>(initialTab);
-  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isAddCaseOpen, setIsAddCaseOpen] = useState(false);
+  const [isConnectOpen, setIsConnectOpen] = useState(false);
+  const [isRequestsPanelOpen, setIsRequestsPanelOpen] = useState(false);
 
   const {
-    caseInfo,
     documents,
     entities,
     relationships,
     contradictions,
     events,
-    activeAgency,
-    setActiveAgency,
+    activeCaseName,
+    activeCaseFilingAgency,
+    connectionRequests,
+    pendingIncomingRequests,
+    acceptedLinkedAgencies,
+    canAgencyViewCase,
     isProcessing,
     processingStatusText,
     provenanceFocus,
     setProvenanceFocus,
+    setActiveAgency,
     updateRelationshipStatus,
     updateContradictionStatus,
-    resetToDefaultCase,
+    clearAllCaseData,
   } = useInvestigation();
 
-  // Lock active agency to portal's scoped agency on mount and when it changes
+  // Set portal-scoped active agency on mount
   React.useEffect(() => {
-    if (scopedAgency && scopedAgency !== activeAgency) {
-      setActiveAgency(scopedAgency);
-    }
-  }, [scopedAgency, activeAgency, setActiveAgency]);
+    setActiveAgency(scopedAgency);
+  }, [scopedAgency, setActiveAgency]);
 
   // Provenance helper
   const handleOpenProvenance = (docId: string, offset: string, snippet?: string) => {
@@ -65,31 +72,48 @@ export const NexusShell: React.FC<NexusShellProps> = ({
 
   const flaggedCount = contradictions.filter((c) => c.status === 'flagged').length;
   const suggestedCount = relationships.filter((r) => r.status === 'ai_suggested').length;
+  const pendingCount = pendingIncomingRequests.length;
 
   const currentProvenanceDoc = provenanceFocus
     ? documents.find((d) => d.id === provenanceFocus.documentId) || null
     : null;
 
-  // Default upload agency — use portal's agency, fallback to jodhpur
-  const defaultUploadAgency: 'jodhpur' | 'kota' =
-    scopedAgency === 'kota' ? 'kota' : 'jodhpur';
+  // Access control: what this portal can see
+  const canView = canAgencyViewCase(scopedAgency);
+  const visibleDocs = canView ? documents : [];
+  const visibleEntities = canView ? entities : [];
+  const visibleEvents = canView ? events : [];
+  const visibleRelationships = canView ? relationships : [];
+  const visibleContradictions = canView ? contradictions : [];
+
+  // Check if a connection request is already pending or accepted for this portal → case
+  const hasExistingRequest =
+    !!documents.length &&
+    connectionRequests.some(
+      (r) =>
+        r.requesting_agency_slug === scopedAgency &&
+        r.case_id === documents[0]?.case_id
+    );
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#EFECE6] text-[#111111] font-mono selection:bg-[#F5C842] selection:text-black">
       {/* 1. Full-Width Top Header */}
       <NexusHeader
         currentTab={currentTab}
-        activeAgency={activeAgency}
         scopedAgency={scopedAgency}
-        onSelectAgency={setActiveAgency}
-        onOpenUpload={() => setIsUploadOpen(true)}
-        onResetCase={resetToDefaultCase}
+        onOpenUpload={() => setIsAddCaseOpen(true)}
+        onOpenConnect={() => setIsConnectOpen(true)}
+        onResetCase={clearAllCaseData}
         onSelectTab={setCurrentTab}
         isProcessing={isProcessing}
         processingText={processingStatusText}
+        hasActiveCase={documents.length > 0}
+        hasExistingConnectionRequest={hasExistingRequest}
+        acceptedLinkedAgencies={acceptedLinkedAgencies}
+        activeCaseName={activeCaseName}
       />
 
-      {/* 2. Main Workspace Body: Sidebar on Left + Content Canvas on Right */}
+      {/* 2. Main Workspace Body */}
       <div className="flex-1 flex flex-row min-h-0 w-full overflow-hidden">
         {/* Left Sidebar */}
         <NexusSidebar
@@ -97,23 +121,30 @@ export const NexusShell: React.FC<NexusShellProps> = ({
           onSelectTab={setCurrentTab}
           scopedAgency={scopedAgency}
           stats={{
-            documentsCount: documents.length,
-            entitiesCount: entities.length,
+            documentsCount: visibleDocs.length,
+            entitiesCount: visibleEntities.length,
             flaggedContradictionsCount: flaggedCount,
             suggestedCount: suggestedCount,
+            pendingRequestsCount: pendingCount,
           }}
+          onOpenRequestsPanel={() => setIsRequestsPanelOpen(true)}
         />
 
         {/* Dynamic Canvas Workspace */}
         <main className="flex-1 min-w-0 h-full overflow-y-auto bg-[#EFECE6] relative">
           {currentTab === 'overview' && (
             <NexusOverview
-              documents={documents}
-              entities={entities}
-              relationships={relationships}
-              contradictions={contradictions}
-              events={events}
-              onOpenUpload={() => setIsUploadOpen(true)}
+              documents={visibleDocs}
+              entities={visibleEntities}
+              relationships={visibleRelationships}
+              contradictions={visibleContradictions}
+              events={visibleEvents}
+              scopedAgency={scopedAgency}
+              acceptedLinkedAgencies={acceptedLinkedAgencies}
+              activeCaseName={activeCaseName}
+              activeCaseFilingAgency={activeCaseFilingAgency}
+              onOpenUpload={() => setIsAddCaseOpen(true)}
+              onOpenConnect={() => setIsConnectOpen(true)}
               onSelectTab={setCurrentTab}
               onConfirmRelationship={(id) => updateRelationshipStatus(id, 'confirmed')}
               onDismissRelationship={(id) => updateRelationshipStatus(id, 'dismissed')}
@@ -123,9 +154,9 @@ export const NexusShell: React.FC<NexusShellProps> = ({
 
           {currentTab === 'vault' && (
             <NexusVault
-              documents={documents}
-              entities={entities}
-              onOpenUpload={() => setIsUploadOpen(true)}
+              documents={visibleDocs}
+              entities={visibleEntities}
+              onOpenUpload={() => setIsAddCaseOpen(true)}
               onOpenProvenance={handleOpenProvenance}
             />
           )}
@@ -134,7 +165,7 @@ export const NexusShell: React.FC<NexusShellProps> = ({
             <div className="h-full w-full min-h-[calc(100vh-60px)]">
               <NexusGraph
                 onOpenProvenance={handleOpenProvenance}
-                onOpenUpload={() => setIsUploadOpen(true)}
+                onOpenUpload={() => setIsAddCaseOpen(true)}
                 onSelectTab={setCurrentTab}
               />
             </div>
@@ -142,9 +173,9 @@ export const NexusShell: React.FC<NexusShellProps> = ({
 
           {currentTab === 'contradictions' && (
             <NexusContradictions
-              contradictions={contradictions}
-              events={events}
-              documents={documents}
+              contradictions={visibleContradictions}
+              events={visibleEvents}
+              documents={visibleDocs}
               onResolveContradiction={(id, status) => updateContradictionStatus(id, status)}
               onOpenProvenance={handleOpenProvenance}
             />
@@ -152,14 +183,14 @@ export const NexusShell: React.FC<NexusShellProps> = ({
 
           {currentTab === 'timeline' && (
             <NexusTimelineMap
-              events={events}
+              events={visibleEvents}
               onOpenProvenance={handleOpenProvenance}
             />
           )}
 
           {currentTab === 'authors' && (
             <NexusAuthors
-              documents={documents}
+              documents={visibleDocs}
               onOpenProvenance={handleOpenProvenance}
               onSelectTab={setCurrentTab}
             />
@@ -167,13 +198,13 @@ export const NexusShell: React.FC<NexusShellProps> = ({
 
           {currentTab === 'dossier' && (
             <NexusDossier
-              documents={documents}
+              documents={visibleDocs}
               onOpenProvenance={handleOpenProvenance}
             />
           )}
         </main>
 
-        {/* 3. Provenance Inspector — inline right drawer (pushes content, no overlap) */}
+        {/* Provenance Inspector — inline right drawer */}
         {provenanceFocus && currentProvenanceDoc && (
           <NexusProvenanceInspector
             document={currentProvenanceDoc}
@@ -184,16 +215,29 @@ export const NexusShell: React.FC<NexusShellProps> = ({
         )}
       </div>
 
-      {/* 4. Add New Case Modal */}
-      {isUploadOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="relative w-full max-w-2xl bg-white border-2 border-black shadow-brutal-lg">
-            <AddNewCaseModal
-              onClose={() => setIsUploadOpen(false)}
-              defaultAgencySlug={defaultUploadAgency}
-            />
-          </div>
-        </div>
+      {/* Modals — rendered via portals, only one at a time */}
+      {isAddCaseOpen && (
+        <AddNewCaseModal
+          onClose={() => setIsAddCaseOpen(false)}
+          filingAgency={scopedAgency}
+        />
+      )}
+
+      {isConnectOpen && documents.length > 0 && (
+        <ConnectionRequestModal
+          onClose={() => setIsConnectOpen(false)}
+          requestingAgency={scopedAgency}
+          caseId={documents[0]?.case_id ?? ''}
+          caseName={activeCaseName ?? 'Active Case'}
+          documents={documents}
+        />
+      )}
+
+      {isRequestsPanelOpen && (
+        <ConnectionRequestsPanel
+          onClose={() => setIsRequestsPanelOpen(false)}
+          currentPortalAgency={scopedAgency}
+        />
       )}
     </div>
   );

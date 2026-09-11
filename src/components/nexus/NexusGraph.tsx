@@ -55,7 +55,6 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({
     contradictions,
     updateRelationshipStatus,
     setProvenanceFocus,
-    resetToDefaultCase,
   } = useInvestigation();
 
   // Entity drawer & relationship modal state
@@ -105,20 +104,38 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          MAIN GRAPH BODY — Only Tactical Link Graph
+          MAIN GRAPH BODY — Tactical Link Graph or Empty State
       ───────────────────────────────────────────────────────────── */}
       <div className="w-full flex-1 overflow-y-auto relative">
-        <div className="p-4 w-full h-full">
-          <NexusLinkGraph
-            entities={entities}
-            relationships={relationships}
-            contradictions={contradictions}
-            agencies={agencies}
-            onSelectEntity={(e) => setActiveNodeForDrawer(e)}
-            onSelectRelationship={(r) => setActiveRelForModal(r)}
-            onOpenProvenance={onOpenProvenance}
-          />
-        </div>
+        {entities.length === 0 ? (
+          <div className="p-8 h-full flex flex-col items-center justify-center text-center">
+            <div className="bg-white border-2 border-black p-10 max-w-lg shadow-brutal space-y-4">
+              <GitBranch className="w-12 h-12 text-slate-400 mx-auto" />
+              <h4 className="text-base font-black uppercase text-black">NO ENTITIES IN KNOWLEDGE GRAPH</h4>
+              <p className="text-xs text-slate-600 font-sans leading-relaxed">
+                The Tactical Link Graph extracts suspects, vehicles, weapons, organizations, and crime scenes automatically from ingested evidence files.
+              </p>
+              <button
+                onClick={onOpenUpload}
+                className="px-5 py-2.5 bg-[#F5C842] hover:bg-[#EAB308] text-black font-black text-xs border-2 border-black shadow-brutal inline-flex items-center gap-2 transition active:translate-x-0.5 active:translate-y-0.5"
+              >
+                + INGEST CASE EVIDENCE
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 w-full h-full">
+            <NexusLinkGraph
+              entities={entities}
+              relationships={relationships}
+              contradictions={contradictions}
+              agencies={agencies}
+              onSelectEntity={(e) => setActiveNodeForDrawer(e)}
+              onSelectRelationship={(r) => setActiveRelForModal(r)}
+              onOpenProvenance={onOpenProvenance}
+            />
+          </div>
+        )}
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
