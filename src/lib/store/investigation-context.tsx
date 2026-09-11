@@ -25,6 +25,16 @@ import { realtimeRelay } from '@/lib/supabase/client';
 import { extractDocumentIntelligence, explainContradiction } from '@/lib/ai/pipeline';
 import { findCandidateContradictions } from '@/lib/ai/deterministic-detector';
 
+export interface TransmissionAlert {
+  id: string;
+  fromAgency: 'jodhpur' | 'kota';
+  toAgency: 'jodhpur' | 'kota';
+  title: string;
+  message: string;
+  documentId?: string;
+  timestamp: number;
+}
+
 interface ProvenanceFocus {
   documentId: string;
   sourceOffset: string;
@@ -50,6 +60,8 @@ interface InvestigationContextType {
   isProcessing: boolean;
   processingStatusText: string;
   isLiveSyncActive: boolean;
+  latestTransmission: TransmissionAlert | null;
+  transmissionsList: TransmissionAlert[];
 
   // Actions
   setActiveAgency: (agency: 'all' | 'jodhpur' | 'kota') => void;
@@ -60,7 +72,9 @@ interface InvestigationContextType {
   setProvenanceFocus: (focus: ProvenanceFocus | null) => void;
   
   // Intelligence Ingestion & HITL Confirmation
-  ingestDocument: (docData: Partial<Document> & { title: string; content_text: string; agency_slug: 'jodhpur' | 'kota'; file_type: Document['file_type'] }) => Promise<void>;
+  ingestDocument: (docData: Partial<Document> & { title: string; content_text: string; agency_slug: 'jodhpur' | 'kota'; file_type: Document['file_type']; media_url?: string }) => Promise<void>;
+  transmitToAgency: (fromAgency: 'jodhpur' | 'kota', toAgency: 'jodhpur' | 'kota', docId: string, note?: string) => void;
+  dismissTransmission: () => void;
   updateRelationshipStatus: (relationshipId: string, status: RelationshipStatus) => void;
   updateContradictionStatus: (contradictionId: string, status: ContradictionStatus) => void;
   resetToDefaultCase: () => void;
@@ -68,7 +82,7 @@ interface InvestigationContextType {
 
 const InvestigationContext = createContext<InvestigationContextType | null>(null);
 
-const STORAGE_KEY = 'surag_ai_state_v1';
+const STORAGE_KEY = 'surag_fresh_case_state_v5';
 
 export function InvestigationProvider({ children }: { children: React.ReactNode }) {
   const [caseInfo] = useState<Case>(INITIAL_CASE);
@@ -86,6 +100,9 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [provenanceFocus, setProvenanceFocus] = useState<ProvenanceFocus | null>(null);
+
+  const [latestTransmission, setLatestTransmission] = useState<TransmissionAlert | null>(null);
+  const [transmissionsList, setTransmissionsList] = useState<TransmissionAlert[]>([]);
 
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [processingStatusText, setProcessingStatusText] = useState<string>('');
@@ -144,12 +161,60 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
 
       if (eventName === 'DOCUMENT_INGESTED') {
         setDocuments((prev) => [payload.document, ...prev.filter((d) => d.id !== payload.document.id)]);
-        setEntities((prev) => [...prev, ...(payload.newEntities || [])]);
-        setEvents((prev) => [...prev, ...(payload.newEvents || [])]);
-        setRelationships((prev) => [...prev, ...(payload.newRelationships || [])]);
+        setEntities((prev) => {
+          const newOnes = (payload.newEntities || []).filter(
+            (ne: Entity) => !prev.some((pe) => pe.id === ne.id || pe.name.toLowerCase() === ne.name.toLowerCase())
+          );
+          return [...prev, ...newOnes];
+        });
+        setEvents((prev) => {
+          const newEvts = (payload.newEvents || []).filter(
+            (ne: Event) => !prev.some((pe) => pe.id === ne.id)
+          );
+          return [...prev, ...newEvts];
+        });
+        setRelationships((prev) => {
+          const newRels = (payload.newRelationships || []).filter(
+            (nr: Relationship) => !prev.some((pr) => pr.id === nr.id)
+          );
+          return [...prev, ...newRels];
+        });
         if (payload.newContradictions?.length) {
-          setContradictions((prev) => [...prev, ...payload.newContradictions]);
+          setContradictions((prev) => {
+            const newCons = (payload.newContradictions || []).filter(
+              (nc: Contradiction) => !prev.some((pc) => pc.id === nc.id)
+            );
+            return [...prev, ...newCons];
+          });
         }
+
+        // Automatic cross-agency transmission notification
+        if (payload.fromAgency) {
+          const opposite = payload.fromAgency === 'jodhpur' ? 'kota' : 'jodhpur';
+          const alert: TransmissionAlert = {
+            id: `tx-${Date.now()}`,
+            fromAgency: payload.fromAgency,
+            toAgency: opposite,
+            title: payload.document.title,
+            message: `${payload.fromAgency.toUpperCase()} POLICE deposited and dispatched new classified evidence: "${payload.document.title}". Extracted ${payload.newEntities?.length || 0} entities and ${payload.newEvents?.length || 0} timeline events.`,
+            documentId: payload.document.id,
+            timestamp: Date.now(),
+          };
+          setLatestTransmission(alert);
+          setTransmissionsList((prev) => [alert, ...prev]);
+        }
+      } else if (eventName === 'AGENCY_TRANSMISSION') {
+        const alert: TransmissionAlert = {
+          id: payload.id || `tx-${Date.now()}`,
+          fromAgency: payload.fromAgency,
+          toAgency: payload.toAgency,
+          title: payload.title,
+          message: payload.message,
+          documentId: payload.documentId,
+          timestamp: payload.timestamp || Date.now(),
+        };
+        setLatestTransmission(alert);
+        setTransmissionsList((prev) => [alert, ...prev]);
       } else if (eventName === 'RELATIONSHIP_UPDATED') {
         setRelationships((prev) =>
           prev.map((r) => (r.id === payload.relationshipId ? { ...r, status: payload.status } : r))
@@ -164,6 +229,8 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         setEvents(INITIAL_EVENTS);
         setRelationships(INITIAL_RELATIONSHIPS);
         setContradictions(INITIAL_CONTRADICTIONS);
+        setLatestTransmission(null);
+        setTransmissionsList([]);
         localStorage.removeItem(STORAGE_KEY);
       }
     });
@@ -171,6 +238,33 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
     setIsLiveSyncActive(true);
     return () => unsubscribe();
   }, []);
+
+  // Transmit dossier or message from one agency to another
+  const transmitToAgency = (
+    fromAgency: 'jodhpur' | 'kota',
+    toAgency: 'jodhpur' | 'kota',
+    docId: string,
+    note?: string
+  ) => {
+    const doc = documents.find((d) => d.id === docId);
+    const alert: TransmissionAlert = {
+      id: `tx-${Date.now()}`,
+      fromAgency,
+      toAgency,
+      title: doc?.title || 'Classified Intelligence Transfer',
+      message: note || `Urgent intelligence lead forwarded from ${fromAgency.toUpperCase()} to ${toAgency.toUpperCase()} sector command.`,
+      documentId: docId,
+      timestamp: Date.now(),
+    };
+
+    setLatestTransmission(alert);
+    setTransmissionsList((prev) => [alert, ...prev]);
+    realtimeRelay.publish('AGENCY_TRANSMISSION', alert);
+  };
+
+  const dismissTransmission = () => {
+    setLatestTransmission(null);
+  };
 
   // Ingest new document and run Track A Detective Extraction
   const ingestDocument = async (docData: {
@@ -254,8 +348,8 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
           return {
             id: `rel-${Date.now()}-${idx}`,
             case_id: caseInfo.id,
-            source_entity_id: sourceEnt.id,
-            target_entity_id: targetEnt.id,
+            source_entity_id: sourceEnt ? sourceEnt.id : 'ent-0',
+            target_entity_id: targetEnt ? targetEnt.id : 'ent-1',
             relationship_type: raw.relationship_type || 'CONNECTED_TO',
             description: raw.description,
             confidence: raw.confidence,
@@ -303,8 +397,9 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
 
       persistState(finalDocs, allEntities, allEvents, allRelationships, allContradictions);
 
-      // Broadcast to Realtime Channel
+      // Broadcast to Realtime Channel with agency attribution
       realtimeRelay.publish('DOCUMENT_INGESTED', {
+        fromAgency: docData.agency_slug,
         document: { ...newDoc, status: 'processed' },
         newEntities: newEntityRecords,
         newEvents: newEventRecords,
@@ -345,6 +440,8 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
     setSelectedEvent(null);
     setSelectedDocument(null);
     setProvenanceFocus(null);
+    setLatestTransmission(null);
+    setTransmissionsList([]);
     localStorage.removeItem(STORAGE_KEY);
     realtimeRelay.publish('STATE_RESET', {});
   };
@@ -368,6 +465,8 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         isProcessing,
         processingStatusText,
         isLiveSyncActive,
+        latestTransmission,
+        transmissionsList,
         setActiveAgency,
         setSelectedEntity,
         setSelectedRelationship,
@@ -375,6 +474,8 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         setSelectedDocument,
         setProvenanceFocus,
         ingestDocument,
+        transmitToAgency,
+        dismissTransmission,
         updateRelationshipStatus,
         updateContradictionStatus,
         resetToDefaultCase,

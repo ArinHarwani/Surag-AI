@@ -1,7 +1,7 @@
 'use client';
 
-import { NexusShell } from '@/components/nexus/NexusShell';
+import { JodhpurTerminal } from '@/components/portals/JodhpurTerminal';
 
-export default function JodhpurPortalPage() {
-  return <NexusShell initialTab="vault" scopedAgency="jodhpur" />;
+export default function JodhpurPage() {
+  return <JodhpurTerminal />;
 }
