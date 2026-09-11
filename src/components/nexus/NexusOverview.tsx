@@ -276,7 +276,7 @@ export const NexusOverview: React.FC<NexusOverviewProps> = ({
                     <span className="text-[10px] font-black px-1.5 py-0.5 bg-black text-[#F5C842] border border-black">
                       #{idx + 1}
                     </span>
-                    <span className={`text-[10px] font-black ${isConflict ? 'text-red-700' : 'text-slate-700'}`}>
+                    <span suppressHydrationWarning className={`text-[10px] font-black ${isConflict ? 'text-red-700' : 'text-slate-700'}`}>
                       {new Date(evt.event_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST
                     </span>
                   </div>
