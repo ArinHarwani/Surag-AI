@@ -25,9 +25,9 @@ import {
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full min-h-[500px] flex flex-col items-center justify-center bg-[#090A0D] text-[#8E929B] font-mono text-xs">
-      <div className="w-6 h-6 border-2 border-[#F4C430] border-t-transparent rounded-full animate-spin mb-3" />
-      <span className="tracking-widest">INITIALIZING FUSION KNOWLEDGE GRAPH...</span>
+    <div className="w-full h-full min-h-[500px] flex flex-col items-center justify-center bg-[#EFECE6] text-black font-mono text-xs border-2 border-black">
+      <div className="w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin mb-3" />
+      <span className="font-black tracking-widest">INITIALIZING FUSION KNOWLEDGE GRAPH...</span>
     </div>
   ),
 });
@@ -48,7 +48,7 @@ interface NexusGraphProps {
 export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
   const fgRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 900, height: 600 });
+  const [dimensions, setDimensions] = useState({ width: 900, height: 620 });
 
   const {
     entities,
@@ -72,7 +72,7 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
       if (containerRef.current) {
         setDimensions({
           width: containerRef.current.clientWidth || 900,
-          height: containerRef.current.clientHeight || 600,
+          height: containerRef.current.clientHeight || 620,
         });
       }
     };
@@ -122,7 +122,7 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
     return { nodes: activeNodes, links: activeLinks };
   }, [entities, relationships, activeAgency, agencies, selectedTypeFilter, searchQuery]);
 
-  // Custom node rendering for crisp command canvas aesthetic
+  // Custom node rendering for crisp command canvas aesthetic on light theme
   const paintNode = useCallback(
     (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const radius = (node.val || 7) * 1.5;
@@ -134,42 +134,42 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
       if (isSelected) {
         ctx.beginPath();
         ctx.arc(node.x, node.y, radius + 8, 0, 2 * Math.PI, false);
-        ctx.fillStyle = 'rgba(244, 196, 48, 0.25)';
+        ctx.fillStyle = 'rgba(245, 200, 66, 0.45)';
         ctx.fill();
       }
 
-      // Outer agency ring
-      let agencyColor = '#3F4452';
-      if (node.agency_id === agencies.jodhpur?.id) agencyColor = '#06B6D4'; // Jodhpur Cyan
-      if (node.agency_id === agencies.kota?.id) agencyColor = '#F59E0B'; // Kota Amber
+      // Outer agency ring with black border
+      let agencyColor = '#000000';
+      if (node.agency_id === agencies.jodhpur?.id) agencyColor = '#0284C7'; // Jodhpur Blue
+      if (node.agency_id === agencies.kota?.id) agencyColor = '#D97706'; // Kota Amber
 
       ctx.beginPath();
-      ctx.arc(node.x, node.y, radius + 2.5, 0, 2 * Math.PI, false);
+      ctx.arc(node.x, node.y, radius + 3, 0, 2 * Math.PI, false);
       ctx.fillStyle = agencyColor;
       ctx.fill();
 
       // Inner entity body
       ctx.beginPath();
       ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
-      ctx.fillStyle = node.color || '#F4C430';
+      ctx.fillStyle = node.color || '#F5C842';
       ctx.fill();
 
       // Center core
       ctx.beginPath();
-      ctx.arc(node.x, node.y, radius * 0.45, 0, 2 * Math.PI, false);
-      ctx.fillStyle = '#090A0D';
+      ctx.arc(node.x, node.y, radius * 0.4, 0, 2 * Math.PI, false);
+      ctx.fillStyle = '#FFFFFF';
       ctx.fill();
 
-      // Node label badge (truncated cleanly if long)
+      // Node label badge (crisp white tag with black border and black text)
       if (globalScale > 0.6) {
         const displayLabel = label.length > 24 ? label.slice(0, 22) + '…' : label;
-        ctx.font = `700 ${fontSize}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
+        ctx.font = `800 ${fontSize}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
         const textWidth = ctx.measureText(displayLabel).width;
-        ctx.fillStyle = 'rgba(9, 10, 13, 0.95)';
-        ctx.strokeStyle = agencyColor;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = '#000000';
         ctx.lineWidth = 1.5;
 
         // Label rect
@@ -181,7 +181,7 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
         ctx.fillRect(rx, ry, rw, rh);
         ctx.strokeRect(rx, ry, rw, rh);
 
-        ctx.fillStyle = '#FFFFFF';
+        ctx.fillStyle = '#000000';
         ctx.fillText(displayLabel, node.x, node.y + radius + fontSize / 2 + 7);
       }
     },
@@ -190,8 +190,8 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
 
   const getLinkColor = useCallback((link: any) => {
     if (link.status === 'confirmed') return '#10B981';
-    if (link.status === 'ai_suggested') return '#F4C430';
-    return '#3F4452';
+    if (link.status === 'ai_suggested') return '#D97706';
+    return '#94A3B8';
   }, []);
 
   const handleLinkClick = (link: any) => {
@@ -217,13 +217,13 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
   ];
 
   return (
-    <div ref={containerRef} className="relative w-full h-full min-h-[620px] bg-[#090A0D] flex flex-col overflow-hidden font-mono select-none">
-      {/* Top Tactical Command HUD */}
+    <div ref={containerRef} className="relative w-full h-full min-h-[620px] bg-[#EFECE6] flex flex-col overflow-hidden font-mono select-none text-black">
+      {/* Top Tactical Command HUD (Light theme with black borders) */}
       <div className="absolute top-4 left-4 right-4 z-10 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
         {/* Filter Pills & Search */}
-        <div className="flex flex-wrap items-center gap-2 pointer-events-auto bg-[#12141A]/95 border border-[#232731] p-1.5 rounded shadow-2xl backdrop-blur-md">
-          <div className="flex items-center gap-1 px-2 text-[10px] text-[#8E929B] uppercase font-bold tracking-wider">
-            <Filter className="w-3 h-3 text-[#F4C430]" />
+        <div className="flex flex-wrap items-center gap-2 pointer-events-auto bg-white border-2 border-black p-2 shadow-brutal">
+          <div className="flex items-center gap-1 px-1.5 text-xs text-black uppercase font-black">
+            <Filter className="w-3.5 h-3.5 text-black" />
             <span>TYPE:</span>
           </div>
 
@@ -232,16 +232,14 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
               <button
                 key={btn.value}
                 onClick={() => setSelectedTypeFilter(btn.value)}
-                className={`px-2.5 py-1 text-[10px] font-bold rounded transition flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 text-xs font-black transition flex items-center gap-1 border ${
                   selectedTypeFilter === btn.value
-                    ? 'bg-[#F4C430] text-black font-extrabold shadow-md shadow-[#F4C430]/20'
-                    : 'bg-[#181B22] text-[#8E929B] hover:text-white hover:bg-[#232731]'
+                    ? 'bg-[#F5C842] text-black border-black shadow-sm'
+                    : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-100'
                 }`}
               >
                 <span>{btn.label}</span>
-                <span className={`text-[9px] px-1 rounded ${
-                  selectedTypeFilter === btn.value ? 'bg-black/20 text-black' : 'bg-black/40 text-[#8E929B]'
-                }`}>
+                <span className="text-[10px] px-1 bg-black/10 text-black font-bold">
                   {btn.count}
                 </span>
               </button>
@@ -250,18 +248,18 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
 
           {/* Search box */}
           <div className="relative ml-2">
-            <Search className="w-3 h-3 text-[#8E929B] absolute left-2.5 top-2.5" />
+            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
             <input
               type="text"
               placeholder="SEARCH GRAPH..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-[#090A0D] border border-[#232731] text-white text-[11px] rounded pl-8 pr-3 py-1 outline-none w-40 focus:w-56 focus:border-[#F4C430] transition-all"
+              className="bg-[#FBF9F5] border border-black text-black text-xs rounded-none pl-8 pr-3 py-1 outline-none w-44 focus:w-60 focus:bg-white transition-all font-sans font-bold"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-2 text-[#8E929B] hover:text-white"
+                className="absolute right-2 top-2 text-slate-500 hover:text-black"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -270,30 +268,30 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
         </div>
 
         {/* Legend & Controls */}
-        <div className="flex items-center gap-3 pointer-events-auto bg-[#12141A]/95 border border-[#232731] px-3 py-1.5 rounded shadow-2xl backdrop-blur-md text-[10px]">
+        <div className="flex items-center gap-3 pointer-events-auto bg-white border-2 border-black px-3.5 py-2 shadow-brutal text-xs font-bold">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#06B6D4]" />
-              <span className="text-[#8E929B]">JODHPUR</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-[#0284C7] border border-black" />
+              <span className="text-black">JODHPUR</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#F59E0B]" />
-              <span className="text-[#8E929B]">KOTA</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-[#D97706] border border-black" />
+              <span className="text-black">KOTA</span>
             </div>
-            <div className="flex items-center gap-1.5 border-l border-[#232731] pl-3">
-              <span className="w-3 h-0.5 bg-[#F4C430]" />
-              <span className="text-[#F4C430] font-bold">AI SUGGESTED</span>
+            <div className="flex items-center gap-1.5 border-l border-black pl-3">
+              <span className="w-3.5 h-1 bg-[#D97706]" />
+              <span className="text-[#D97706] font-black">AI SUGGESTED</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-0.5 bg-[#10B981]" />
-              <span className="text-[#10B981] font-bold">CONFIRMED</span>
+              <span className="w-3.5 h-1 bg-[#10B981]" />
+              <span className="text-emerald-700 font-black">CONFIRMED</span>
             </div>
           </div>
 
           <button
             onClick={handleZoomFit}
             title="Recenter & Fit Graph"
-            className="ml-2 p-1.5 bg-[#181B22] border border-[#232731] hover:border-[#F4C430] text-[#8E929B] hover:text-[#F4C430] rounded transition"
+            className="ml-2 p-1.5 bg-white border border-black hover:bg-slate-100 text-black shadow-xs transition"
           >
             <Maximize2 className="w-3.5 h-3.5" />
           </button>
@@ -307,7 +305,7 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
           width={dimensions.width}
           height={dimensions.height}
           graphData={graphData}
-          backgroundColor="#090A0D"
+          backgroundColor="#EFECE6"
           nodeCanvasObject={paintNode}
           nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {
             ctx.fillStyle = color;
@@ -316,14 +314,14 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
             ctx.fill();
           }}
           linkLabel={(l: any) =>
-            `${l.relationship_type.toUpperCase()} • ${Math.round(l.confidence * 100)}% CONFIDENCE • CLICK TO INSPECT`
+            `${l.relationship_type.toUpperCase()} • ${Math.round(l.confidence * 100)}% CONFIDENCE • CLICK TO ARBITRATE`
           }
           linkColor={getLinkColor}
-          linkWidth={(l: any) => (l.status === 'confirmed' ? 2.5 : 1.8)}
+          linkWidth={(l: any) => (l.status === 'confirmed' ? 2.5 : 2)}
           linkDirectionalParticles={(l: any) => (l.status === 'ai_suggested' ? 4 : 1)}
           linkDirectionalParticleSpeed={(l: any) => (l.status === 'ai_suggested' ? 0.006 : 0.002)}
           linkDirectionalParticleWidth={2.5}
-          linkDirectionalParticleColor={(l: any) => (l.status === 'ai_suggested' ? '#F4C430' : '#10B981')}
+          linkDirectionalParticleColor={(l: any) => (l.status === 'ai_suggested' ? '#D97706' : '#10B981')}
           linkDirectionalArrowLength={4}
           linkDirectionalArrowRelPos={1}
           linkCurvature={0.12}
@@ -340,10 +338,10 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
       {/* Empty State */}
       {graphData.nodes.length === 0 && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none p-6 text-center">
-          <div className="p-5 bg-[#12141A]/95 border border-[#232731] rounded-lg max-w-md space-y-2 backdrop-blur shadow-2xl">
-            <Layers className="w-8 h-8 text-[#F4C430] mx-auto opacity-80" />
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider">Awaiting Fusion Data</h4>
-            <p className="text-[11px] text-[#8E929B] leading-relaxed">
+          <div className="p-6 bg-white border-2 border-black rounded-none max-w-md space-y-2 shadow-brutal">
+            <Layers className="w-8 h-8 text-black mx-auto" />
+            <h4 className="text-sm font-black text-black uppercase tracking-wider">Awaiting Fusion Data</h4>
+            <p className="text-xs text-slate-700 leading-relaxed font-medium">
               No matching entities found for active filters. Ingest evidence files or clear filter queries to render the knowledge graph.
             </p>
           </div>
@@ -352,69 +350,69 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
 
       {/* HITL Relationship Explanation & Arbitration Modal */}
       {activeRelForModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#12141A] border border-[#232731] rounded-lg max-w-xl w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border-2 border-black rounded-none max-w-xl w-full p-5 shadow-brutal-lg space-y-4 animate-in fade-in zoom-in-95 duration-150 text-black font-mono">
             {/* Modal Header */}
-            <div className="flex items-start justify-between border-b border-[#232731] pb-3">
+            <div className="flex items-start justify-between border-b-2 border-black pb-3">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-[#F4C430]/10 border border-[#F4C430]/30 rounded text-[#F4C430]">
+                <div className="p-2.5 bg-[#F5C842] border-2 border-black text-black font-black">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-[#8E929B] uppercase tracking-wider">
-                      GRAPHRAG HITL ARBITRATION
+                    <span className="text-xs text-slate-700 uppercase font-black tracking-wider">
+                      GRAPHRAG ARBITRATION
                     </span>
                     <span
-                      className={`text-[9px] px-2 py-0.5 rounded font-extrabold uppercase ${
+                      className={`text-[10px] px-2 py-0.5 font-black uppercase border border-black ${
                         activeRelForModal.status === 'confirmed'
-                          ? 'bg-[#10B981]/20 text-[#10B981] border border-[#10B981]/40'
-                          : 'bg-[#F4C430]/20 text-[#F4C430] border border-[#F4C430]/40'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-[#F5C842] text-black'
                       }`}
                     >
                       {activeRelForModal.status.replace('_', ' ')}
                     </span>
                   </div>
-                  <h3 className="text-sm font-extrabold text-white mt-0.5 tracking-wide">
+                  <h3 className="text-base font-black text-black mt-0.5 tracking-wide">
                     {activeRelForModal.relationship_type.replace(/_/g, ' ')}
                   </h3>
                 </div>
               </div>
               <button
                 onClick={() => setActiveRelForModal(null)}
-                className="text-[#8E929B] hover:text-white p-1"
+                className="text-black hover:bg-slate-200 p-1 border border-black"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Entities Linked */}
-            <div className="p-3 bg-[#090A0D] border border-[#232731] rounded flex items-center justify-between text-xs">
-              <div className="text-[#06B6D4] font-bold">
+            <div className="p-3 bg-[#FBF9F5] border-2 border-black flex items-center justify-between text-xs">
+              <div className="text-[#0284C7] font-black">
                 {entities.find((e) => e.id === activeRelForModal.source_entity_id)?.name || 'Source Entity'}
               </div>
-              <span className="text-[#8E929B] text-[10px] px-2">
+              <span className="text-black font-bold text-xs px-2">
                 ─── [{activeRelForModal.relationship_type}] ───▶
               </span>
-              <div className="text-[#F59E0B] font-bold">
+              <div className="text-[#D97706] font-black">
                 {entities.find((e) => e.id === activeRelForModal.target_entity_id)?.name || 'Target Entity'}
               </div>
             </div>
 
             {/* AI Explanation / Reasoning */}
             <div className="space-y-1.5">
-              <div className="text-[10px] text-[#8E929B] uppercase tracking-wider flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5 text-[#F4C430]" />
-                <span>RELATIONSHIP RATIONALE & EXTRACTED EVIDENCE</span>
+              <div className="text-xs text-black uppercase font-black flex items-center gap-1.5">
+                <Info className="w-4 h-4 text-black" />
+                <span>RELATIONSHIP RATIONALE &amp; EXTRACTED EVIDENCE</span>
               </div>
-              <div className="p-3 bg-[#090A0D] border border-[#232731] rounded text-[11px] text-[#EDE9E0] leading-relaxed">
+              <div className="p-3 bg-[#FBF9F5] border border-black text-xs text-slate-900 leading-relaxed font-sans font-medium">
                 {activeRelForModal.explanation || activeRelForModal.description || 'Relationship inferred through cross-document entity extraction and semantic coreference resolution.'}
               </div>
             </div>
 
             {/* Cited Evidence Files */}
             <div className="space-y-1.5">
-              <span className="text-[10px] text-[#8E929B] uppercase tracking-wider">
+              <span className="text-xs text-black uppercase font-black">
                 SUPPORTING EVIDENCE DOSSIERS ({activeRelForModal.source_document_ids?.length || 0}):
               </span>
               <div className="space-y-1.5 max-h-36 overflow-y-auto">
@@ -423,11 +421,11 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
                   return (
                     <div
                       key={docId}
-                      className="p-2.5 bg-[#090A0D] border border-[#232731] rounded flex items-center justify-between text-xs hover:border-[#F4C430] transition"
+                      className="p-2.5 bg-white border border-black flex items-center justify-between text-xs hover:bg-[#FBF9F5] transition"
                     >
                       <div className="truncate pr-3">
-                        <span className="text-[#F4C430] font-bold mr-2">[{docId.slice(0, 12)}]</span>
-                        <span className="text-white text-[11px]">{doc?.title || 'Classified Case File'}</span>
+                        <span className="text-black font-black mr-2">[{docId.slice(0, 12)}]</span>
+                        <span className="text-slate-800 text-xs font-bold">{doc?.title || 'Classified Case File'}</span>
                       </div>
                       <button
                         onClick={() => {
@@ -444,9 +442,9 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
                             });
                           }
                         }}
-                        className="text-[#F4C430] hover:text-white flex items-center gap-1 text-[10px] uppercase font-bold shrink-0 bg-[#F4C430]/10 px-2 py-1 rounded border border-[#F4C430]/30"
+                        className="text-black hover:bg-slate-100 flex items-center gap-1 text-xs uppercase font-black shrink-0 px-2 py-1 border border-black"
                       >
-                        <Eye className="w-3 h-3" />
+                        <Eye className="w-3.5 h-3.5" />
                         <span>INSPECT</span>
                       </button>
                     </div>
@@ -456,10 +454,10 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
             </div>
 
             {/* Footer with Confidence & HITL Action Buttons */}
-            <div className="flex items-center justify-between pt-3 border-t border-[#232731]">
+            <div className="flex items-center justify-between pt-3 border-t-2 border-black">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-300 font-bold">CONFIDENCE:</span>
-                <span className="text-xs font-black text-[#10B981]">
+                <span className="text-xs text-slate-700 font-bold">CONFIDENCE:</span>
+                <span className="text-xs font-black text-emerald-800">
                   {Math.round((activeRelForModal.confidence || 0.85) * 100)}% AI CONFIDENCE
                 </span>
               </div>
@@ -470,10 +468,9 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
                     updateRelationshipStatus(activeRelForModal.id, 'dismissed');
                     setActiveRelForModal(null);
                   }}
-                  className="px-3 py-1.5 bg-[#181B22] hover:bg-[#232731] border border-[#EF4444]/40 text-[#EF4444] text-[11px] font-bold rounded flex items-center gap-1.5 transition"
+                  className="px-3 py-1.5 bg-white hover:bg-slate-100 border border-black text-red-700 text-xs font-black transition"
                 >
-                  <XCircle className="w-3.5 h-3.5" />
-                  <span>DISMISS LINK</span>
+                  DISMISS LINK
                 </button>
 
                 <button
@@ -481,10 +478,9 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
                     updateRelationshipStatus(activeRelForModal.id, 'confirmed');
                     setActiveRelForModal(null);
                   }}
-                  className="px-3.5 py-1.5 bg-[#10B981] hover:bg-[#059669] text-black font-extrabold text-[11px] rounded flex items-center gap-1.5 transition shadow-lg shadow-[#10B981]/20"
+                  className="px-4 py-1.5 bg-[#F5C842] hover:bg-[#EAB308] text-black font-black text-xs border border-black shadow-sm transition"
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>CONFIRM AS FACT</span>
+                  CONFIRM AS FACT
                 </button>
               </div>
             </div>
@@ -494,25 +490,23 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
 
       {/* Node Detail Drawer */}
       {activeNodeForDrawer && (
-        <div className="absolute right-4 top-16 bottom-4 w-80 bg-[#12141A]/95 border border-[#232731] rounded-lg p-4 shadow-2xl backdrop-blur-md z-30 flex flex-col justify-between font-mono animate-in slide-in-from-right duration-200">
+        <div className="absolute right-4 top-16 bottom-4 w-84 bg-white border-2 border-black p-4 shadow-brutal-lg z-30 flex flex-col justify-between font-mono animate-in slide-in-from-right duration-200 text-black">
           <div className="space-y-3 overflow-y-auto">
-            <div className="flex items-start justify-between border-b border-[#232731] pb-2.5">
+            <div className="flex items-start justify-between border-b-2 border-black pb-2.5">
               <div>
                 <span
-                  className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"
+                  className="text-[10px] px-2 py-0.5 font-black uppercase tracking-wider text-black border border-black"
                   style={{
-                    backgroundColor: `${TYPE_COLORS[activeNodeForDrawer.type]}20`,
-                    color: TYPE_COLORS[activeNodeForDrawer.type],
-                    border: `1px solid ${TYPE_COLORS[activeNodeForDrawer.type]}40`,
+                    backgroundColor: `${TYPE_COLORS[activeNodeForDrawer.type]}40`,
                   }}
                 >
                   {activeNodeForDrawer.type}
                 </span>
-                <h3 className="text-sm font-extrabold text-white mt-1">{activeNodeForDrawer.name}</h3>
+                <h3 className="text-sm font-black text-black mt-1.5">{activeNodeForDrawer.name}</h3>
               </div>
               <button
                 onClick={() => setActiveNodeForDrawer(null)}
-                className="text-[#8E929B] hover:text-white"
+                className="text-black hover:bg-slate-100 p-1 border border-black"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -520,12 +514,12 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
 
             {/* Attributes */}
             <div className="space-y-1">
-              <span className="text-[10px] text-[#8E929B] uppercase font-bold tracking-wider">RECORD ATTRIBUTES:</span>
-              <div className="p-2.5 bg-[#090A0D] border border-[#232731] rounded text-[11px] space-y-1">
+              <span className="text-xs text-black uppercase font-black tracking-wider">RECORD ATTRIBUTES:</span>
+              <div className="p-3 bg-[#FBF9F5] border border-black text-xs space-y-1.5">
                 {Object.entries(activeNodeForDrawer.attributes || {}).map(([k, v]) => (
-                  <div key={k} className="flex justify-between border-b border-[#181B22] pb-1 last:border-0 last:pb-0">
-                    <span className="text-[#8E929B] capitalize">{k}:</span>
-                    <span className="text-[#EDE9E0] font-bold">{String(v)}</span>
+                  <div key={k} className="flex justify-between border-b border-slate-200 pb-1 last:border-0 last:pb-0">
+                    <span className="text-slate-600 capitalize font-bold">{k}:</span>
+                    <span className="text-black font-black">{String(v)}</span>
                   </div>
                 ))}
               </div>
@@ -533,24 +527,24 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
 
             {/* Associated Events */}
             <div className="space-y-1">
-              <span className="text-[10px] text-[#8E929B] uppercase font-bold tracking-wider">CONNECTED INCIDENTS:</span>
-              <div className="space-y-1 max-h-40 overflow-y-auto">
+              <span className="text-xs text-black uppercase font-black tracking-wider">CONNECTED INCIDENTS:</span>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
                 {events
-                  .filter((ev) => ev.description.toLowerCase().includes(activeNodeForDrawer.name.toLowerCase()))
+                  .filter((ev) => (ev.description || '').toLowerCase().includes(activeNodeForDrawer.name.toLowerCase()))
                   .map((ev) => (
-                    <div key={ev.id} className="p-2 bg-[#090A0D] border border-[#232731] rounded text-[10px]">
-                      <div className="text-[#F4C430] font-bold">{ev.event_timestamp.slice(11, 16)} IST • {ev.location_text}</div>
-                      <div className="text-[#EDE9E0] text-[10px] line-clamp-2 mt-0.5">{ev.description}</div>
+                    <div key={ev.id} className="p-2 bg-[#FBF9F5] border border-black text-xs">
+                      <div className="text-black font-black">{ev.event_timestamp.slice(11, 16)} IST • {ev.location_text}</div>
+                      <div className="text-slate-800 text-[11px] line-clamp-2 mt-0.5 font-sans font-medium">{ev.description}</div>
                     </div>
                   ))}
               </div>
             </div>
           </div>
 
-          <div className="pt-3 border-t border-[#232731]">
+          <div className="pt-3 border-t-2 border-black">
             <button
               onClick={() => setActiveNodeForDrawer(null)}
-              className="w-full py-1.5 bg-[#181B22] hover:bg-[#232731] text-[#8E929B] hover:text-white text-[11px] font-bold rounded transition"
+              className="w-full py-2 bg-black text-white hover:bg-slate-900 text-xs font-black transition"
             >
               CLOSE INSPECTION
             </button>

@@ -1,17 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --background: #090a0d;
-  --foreground: #f1f2f5;
-  --panel-cream: #ede9e0;
-  --panel-cream-dark: #e2ddd2;
-  --panel-dark: #111318;
-  --panel-dark-border: #232731;
-  --accent-yellow: #f4c430;
-  --accent-red: #ef4444;
-  --accent-blue: #0284c7;
-  --accent-kota: #d97706;
-  --accent-green: #10b981;
+  --background: #EFECE6;
+  --foreground: #111111;
+  --panel-cream: #FFFFFF;
+  --panel-cream-dark: #E6E2D8;
+  --panel-dark: #111111;
+  --panel-dark-border: #1F242D;
+  --accent-yellow: #F5C842;
+  --accent-red: #EF4444;
+  --accent-blue: #0284C7;
+  --accent-kota: #D97706;
+  --accent-green: #10B981;
 }
 
 body {
@@ -23,44 +23,44 @@ body {
 
 /* Custom Scrollbar for Classified Terminal Feel */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #090a0d;
+  background: #E6E2D8;
 }
 ::-webkit-scrollbar-thumb {
-  background: #232731;
+  background: #94A3B8;
   border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #f4c430;
+  background: #111111;
 }
 
-/* Leaflet Container styling */
+/* Leaflet Container styling for OpenStreetMap */
 .leaflet-container {
-  background: #090a0d !important;
+  background: #EFECE6 !important;
   font-family: inherit !important;
 }
 
 .leaflet-popup-content-wrapper {
-  background: #111318 !important;
-  color: #f1f2f5 !important;
-  border: 1px solid #f4c430 !important;
-  border-radius: 0.375rem !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.8) !important;
+  background: #FFFFFF !important;
+  color: #111111 !important;
+  border: 2px solid #111111 !important;
+  border-radius: 4px !important;
+  box-shadow: 3px 3px 0px rgba(0, 0, 0, 1) !important;
 }
 
 .leaflet-popup-tip {
-  background: #111318 !important;
+  background: #FFFFFF !important;
+  border: 1px solid #111111 !important;
 }
 
-/* Glowing Pulsing Animations */
-@keyframes classified-glow {
-  0% { box-shadow: 0 0 5px rgba(239, 68, 68, 0.3), 0 0 10px rgba(239, 68, 68, 0.2); }
-  100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.8), 0 0 25px rgba(239, 68, 68, 0.5); }
+/* Tactical Neo-Brutalist Box Shadow Utility */
+.shadow-brutal {
+  box-shadow: 2px 2px 0px 0px rgba(0, 0, 0, 1);
 }
 
-.animate-classified-glow {
-  animation: classified-glow 1.8s ease-in-out infinite alternate;
+.shadow-brutal-lg {
+  box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 1);
 }

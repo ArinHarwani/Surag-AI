@@ -2,14 +2,16 @@
 
 import React from 'react';
 import { 
-  Radio, 
+  Shield, 
   Share2, 
   RotateCcw, 
   Sparkles, 
   ShieldAlert, 
   ChevronRight,
   ShieldCheck,
-  Zap
+  Zap,
+  Activity,
+  Layers
 } from 'lucide-react';
 import { NexusNavTab } from './NexusSidebar';
 
@@ -32,98 +34,120 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
   isProcessing,
   processingText
 }) => {
-  const tabTitles: Record<NexusNavTab, string> = {
-    overview: 'CASE OVERVIEW',
-    vault: 'EVIDENCE VAULT',
-    graph: 'RELATIONSHIP GRAPH',
-    contradictions: 'CONTRADICTIONS',
-    timeline: 'TIMELINE & MAP',
-    dossier: 'DOSSIER & BRIEF'
-  };
+  const tabs: { id: NexusNavTab; label: string }[] = [
+    { id: 'overview', label: 'CASE OVERVIEW' },
+    { id: 'vault', label: 'EVIDENCE VAULT' },
+    { id: 'graph', label: 'ENTITY GRAPH' },
+    { id: 'contradictions', label: 'CONTRADICTION CENTER' },
+    { id: 'timeline', label: 'TIMELINE & GEO' },
+    { id: 'dossier', label: 'DOSSIER & PROVENANCE' },
+  ];
 
   return (
-    <header className="bg-[#090A0D] border-b border-[#232731] text-white px-5 py-3 sticky top-0 z-20 select-none font-mono">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Left: Breadcrumbs with High Contrast Text */}
-        <div className="flex items-center space-x-2 text-xs">
-          <span className="text-slate-400 font-bold">CASE #16</span>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
-          <span className="text-slate-300 font-bold">OP MARWAR</span>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
-          <span className="text-white font-black">AARAV SINGH</span>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
-          <span className="bg-[#F4C430] text-black font-black text-xs px-2.5 py-1 rounded shadow-sm">
-            {tabTitles[currentTab]}
-          </span>
-        </div>
-
-        {/* Center: Realtime Dual-Agency Sync & Confidence Pills */}
-        <div className="hidden lg:flex items-center space-x-2.5 text-xs">
-          {/* Jodhpur Sync Pill */}
-          <div className="flex items-center space-x-2 bg-[#0D1522] border border-[#0284C7]/50 px-3 py-1.5 rounded text-[#38BDF8] font-bold">
-            <span className="w-2 h-2 rounded-full bg-[#0284C7] animate-ping" />
-            <span>JODHPUR-HQ: ONLINE</span>
+    <header className="bg-[#EFECE6] border-b-2 border-black text-black px-4 py-2 sticky top-0 z-20 select-none font-mono">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {/* Left: Brand / Operation Title (Matches reference top bar) */}
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 rounded bg-black text-[#F5C842] flex items-center justify-center font-black shadow-brutal text-sm">
+            <Shield className="w-5 h-5 text-[#F5C842]" />
           </div>
-
-          {/* Kota Sync Pill */}
-          <div className="flex items-center space-x-2 bg-[#1F1607] border border-[#D97706]/50 px-3 py-1.5 rounded text-[#FBBF24] font-bold">
-            <span className="w-2 h-2 rounded-full bg-[#D97706] animate-ping" />
-            <span>KOTA-CID: ONLINE</span>
-          </div>
-
-          {/* Dual WebSocket Latency Pill */}
-          <div className="flex items-center space-x-1.5 bg-[#12161C] border border-[#232731] px-3 py-1.5 rounded text-slate-200 font-bold">
-            <Zap className="w-3.5 h-3.5 text-emerald-400" />
-            <span>LATENCY: 18MS</span>
-          </div>
-
-          {/* Confidence Meter */}
-          <div className="flex items-center space-x-2 bg-[#12161C] border border-emerald-800/80 px-3 py-1.5 rounded text-emerald-300 font-black">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>CONFIDENCE: 91.4%</span>
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className="text-xs font-black tracking-wider text-black uppercase">
+                NEXUS INTEL FUSION
+              </span>
+              <span className="text-[10px] bg-black text-[#F5C842] font-black px-1.5 py-0.5 rounded">
+                SURAG-AI
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-700 font-bold uppercase tracking-tight">
+              OP: MARWAR // PS #16 // DUAL-CUSTODY ACTIVE
+            </p>
           </div>
         </div>
 
-        {/* Right: Agency Scope Selector & Action CTAs */}
-        <div className="flex items-center space-x-2.5">
-          {/* Agency Filter Pills */}
-          <div className="flex items-center bg-[#111318] p-1 rounded border border-[#232731] text-xs">
+        {/* Center: Dual-Agency Sync Block (Matches reference screenshot box) */}
+        <div className="hidden xl:flex items-center space-x-3 bg-white border border-black px-3 py-1 shadow-brutal text-xs">
+          <div className="flex items-center space-x-1.5">
+            <span className="text-slate-600 font-bold text-[10px]">JODHPUR:</span>
+            <span className="text-[#0284C7] font-black text-[11px]">99.4%</span>
+          </div>
+          <span className="text-slate-400">↔</span>
+          <div className="flex items-center space-x-1.5">
+            <span className="text-slate-600 font-bold text-[10px]">KOTA:</span>
+            <span className="text-[#D97706] font-black text-[11px]">100%</span>
+          </div>
+          <div className="bg-black text-[#F5C842] px-2 py-0.5 text-[9px] font-black uppercase rounded-xs">
+            SYNCED
+          </div>
+        </div>
+
+        {/* Center-Right: Horizontal Nav Tabs (Matches reference screenshot with yellow active tab) */}
+        <nav className="flex items-center space-x-1">
+          {tabs.map((t) => {
+            const isActive = currentTab === t.id;
+            return (
+              <a
+                key={t.id}
+                href={`#${t.id}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  // Handled via parent tab selection
+                  const btn = document.getElementById(`sidebar-btn-${t.id}`);
+                  if (btn) btn.click();
+                }}
+                className={`px-3 py-1.5 text-xs font-black transition-all border ${
+                  isActive
+                    ? 'bg-[#F5C842] text-black border-2 border-black shadow-brutal'
+                    : 'bg-transparent text-slate-800 border-transparent hover:bg-black/5 hover:border-black/20'
+                }`}
+              >
+                {t.label}
+              </a>
+            );
+          })}
+        </nav>
+
+        {/* Right: Agency Switcher & Ingest Action Button */}
+        <div className="flex items-center space-x-2">
+          {/* Agency Filter */}
+          <div className="flex items-center bg-white border border-black p-0.5 shadow-brutal text-xs">
             <button
               onClick={() => onSelectAgency('all')}
-              className={`px-2.5 py-1 rounded font-extrabold transition-all ${
+              className={`px-2 py-1 font-black transition-all ${
                 activeAgency === 'all'
-                  ? 'bg-slate-200 text-black shadow'
-                  : 'text-slate-300 hover:text-white'
+                  ? 'bg-black text-white'
+                  : 'text-slate-700 hover:text-black'
               }`}
             >
-              JOINT DECK
+              JOINT
             </button>
             <button
               onClick={() => onSelectAgency('jodhpur')}
-              className={`px-2.5 py-1 rounded font-extrabold transition-all ${
+              className={`px-2 py-1 font-black transition-all ${
                 activeAgency === 'jodhpur'
-                  ? 'bg-[#0284C7] text-white shadow'
-                  : 'text-slate-300 hover:text-sky-300'
+                  ? 'bg-[#0284C7] text-white'
+                  : 'text-slate-700 hover:text-[#0284C7]'
               }`}
             >
               JODHPUR
             </button>
             <button
               onClick={() => onSelectAgency('kota')}
-              className={`px-2.5 py-1 rounded font-extrabold transition-all ${
+              className={`px-2 py-1 font-black transition-all ${
                 activeAgency === 'kota'
-                  ? 'bg-[#D97706] text-white shadow'
-                  : 'text-slate-300 hover:text-amber-300'
+                  ? 'bg-[#D97706] text-white'
+                  : 'text-slate-700 hover:text-[#D97706]'
               }`}
             >
               KOTA
             </button>
           </div>
 
-          {/* Ingest Evidence Button */}
+          {/* Ingest Action Button */}
           <button
             onClick={onOpenUpload}
-            className="px-3.5 py-1.5 bg-[#F4C430] hover:bg-[#EAB308] text-black font-black text-xs rounded flex items-center space-x-1.5 transition-all shadow-md shadow-[#F4C430]/20 active:scale-95"
+            className="px-3 py-1.5 bg-[#F5C842] hover:bg-[#EAB308] text-black font-black text-xs border border-black shadow-brutal flex items-center space-x-1.5 transition active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
           >
             <Share2 className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>+ INGEST</span>
@@ -133,7 +157,7 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
           <button
             onClick={onResetCase}
             title="Reset Case to Initial Demo State"
-            className="p-2 bg-[#111318] hover:bg-[#1A1D24] text-slate-300 hover:text-white border border-[#232731] rounded transition"
+            className="p-1.5 bg-white hover:bg-slate-100 text-black border border-black shadow-brutal transition"
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
@@ -142,12 +166,14 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
 
       {/* Live AI Processing Ticker */}
       {isProcessing && (
-        <div className="mt-2.5 py-1.5 px-4 bg-[#F4C430]/15 border border-[#F4C430]/40 rounded text-[#F4C430] text-xs flex items-center justify-between font-mono animate-pulse">
+        <div className="mt-2 py-1 px-3 bg-white border-2 border-black shadow-brutal text-black text-xs flex items-center justify-between font-mono animate-pulse">
           <div className="flex items-center space-x-2 font-bold">
-            <span className="w-2 h-2 rounded-full bg-[#F4C430] animate-ping" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#F5C842] border border-black animate-ping" />
             <span>EXTRACTION PIPELINE ACTIVE: {processingText || 'Extracting multi-modal intelligence...'}</span>
           </div>
-          <span className="text-xs uppercase font-extrabold text-[#F4C430]">Grounded Citations</span>
+          <span className="text-xs uppercase font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 border border-emerald-500">
+            Grounded In Citations
+          </span>
         </div>
       )}
     </header>

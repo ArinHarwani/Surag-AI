@@ -70,7 +70,7 @@ export const NexusShell: React.FC<NexusShellProps> = ({
     : null;
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#090A0D] text-[#EDE9E0] font-mono selection:bg-[#F4C430] selection:text-black">
+    <div className="flex h-screen w-screen overflow-hidden bg-[#EFECE6] text-[#111111] font-mono selection:bg-[#F5C842] selection:text-black">
       {/* 1. Fixed Left Sidebar */}
       <NexusSidebar
         currentTab={currentTab}
@@ -97,7 +97,7 @@ export const NexusShell: React.FC<NexusShellProps> = ({
         />
 
         {/* Dynamic Canvas Workspace */}
-        <main className="flex-1 overflow-y-auto bg-[#0C0E14] relative">
+        <main className="flex-1 overflow-y-auto bg-[#EFECE6] relative">
           {currentTab === 'overview' && (
             <NexusOverview
               documents={documents}
