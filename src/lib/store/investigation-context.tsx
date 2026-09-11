@@ -12,6 +12,7 @@ import {
   ContradictionStatus,
   ConnectionRequest,
   AgencySlug,
+  FileType,
 } from '@/types/investigation';
 import { supabase, realtimeRelay } from '@/lib/supabase/client';
 import { checkAndSeedSupabase } from '@/lib/supabase/init';
@@ -36,13 +37,34 @@ const AGENCIES: Record<AgencySlug, Agency> = {
     color: '#d97706',
     badge: 'KOTA-CID',
   },
+  jaipur: {
+    id: '33333333-3333-3333-3333-333333333333',
+    name: 'Rajasthan Police HQ (Jaipur)',
+    slug: 'jaipur',
+    color: '#059669',
+    badge: 'JAIPUR-HQ',
+  },
+  ajmer: {
+    id: '44444444-4444-4444-4444-444444444444',
+    name: 'Ajmer District Police',
+    slug: 'ajmer',
+    color: '#7C3AED',
+    badge: 'AJMER-DIST',
+  },
+  jaisalmer: {
+    id: '55555555-5555-5555-5555-555555555555',
+    name: 'Jaisalmer Border Police',
+    slug: 'jaisalmer',
+    color: '#DC2626',
+    badge: 'JAISALMER-BORDER',
+  },
 };
 
 interface ProvenanceFocus {
   documentId: string;
   sourceOffset: string;
   snippet?: string;
-  mediaType?: 'text' | 'image' | 'audio' | 'video';
+  mediaType?: FileType;
   title?: string;
 }
 
@@ -95,6 +117,7 @@ interface InvestigationContextType extends CaseState {
     media_url?: string;
     uploaded_by?: string;
     caseName?: string;
+    filing_agency?: AgencySlug;
   }) => Promise<void>;
 
   // HITL confirmation
@@ -105,7 +128,9 @@ interface InvestigationContextType extends CaseState {
   sendConnectionRequest: (
     requestingAgency: AgencySlug,
     targetAgency: AgencySlug,
-    briefSnapshot: string
+    briefSnapshot: string,
+    mediaUrl?: string,
+    fileType?: string
   ) => void;
   respondToConnectionRequest: (
     requestId: string,
@@ -168,66 +193,118 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
     async function initSupabase() {
       // 1. Seed agencies
       await checkAndSeedSupabase();
-      if (!supabase) return;
 
-      // 2. Fetch all data
-      const [
-        { data: cases },
-        { data: docs },
-        { data: ents },
-        { data: evts },
-        { data: rels },
-        { data: cons },
-        { data: reqs },
-      ] = await Promise.all([
-        supabase.from('cases').select('*').order('created_at', { ascending: false }).limit(1),
-        supabase.from('documents').select('*').order('uploaded_at', { ascending: false }),
-        supabase.from('entities').select('*'),
-        supabase.from('events').select('*'),
-        supabase.from('relationships').select('*'),
-        supabase.from('contradictions').select('*'),
-        supabase.from('connection_requests').select('*'),
-      ]);
+      // 2. Fetch all data via server sync API (service role powered, bypasses RLS)
+      let cases: any[] = [];
+      let docs: any[] = [];
+      let ents: any[] = [];
+      let evts: any[] = [];
+      let rels: any[] = [];
+      let cons: any[] = [];
+      let reqs: any[] = [];
+
+      try {
+        const res = await fetch('/api/investigation/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'fetch_all' }),
+        });
+        if (res.ok) {
+          const fetched = await res.json();
+          cases = fetched.cases || [];
+          docs = fetched.documents || [];
+          ents = fetched.entities || [];
+          evts = fetched.events || [];
+          rels = fetched.relationships || [];
+          cons = fetched.contradictions || [];
+          reqs = fetched.connection_requests || [];
+        }
+      } catch (err) {
+        console.warn('API fetch_all fallback to client:', err);
+      }
+
+      if (cases.length === 0 && supabase) {
+        try {
+          const [
+            { data: c },
+            { data: d },
+            { data: e },
+            { data: ev },
+            { data: r },
+            { data: co },
+            { data: rq },
+          ] = await Promise.all([
+            supabase.from('cases').select('*').order('created_at', { ascending: false }).limit(1),
+            supabase.from('documents').select('*').order('uploaded_at', { ascending: false }),
+            supabase.from('entities').select('*'),
+            supabase.from('events').select('*'),
+            supabase.from('relationships').select('*'),
+            supabase.from('contradictions').select('*'),
+            supabase.from('connection_requests').select('*'),
+          ]);
+          cases = c || [];
+          docs = d || [];
+          ents = e || [];
+          evts = ev || [];
+          rels = r || [];
+          cons = co || [];
+          reqs = rq || [];
+        } catch (clientErr) {
+          console.warn('Direct supabase fetch failed:', clientErr);
+        }
+      }
 
       if (mounted && cases && cases.length > 0) {
         const activeCase = cases[0];
-        // Convert to UI state
+        // Convert to UI state with strict case isolation
+        const caseDocs = (docs || []).filter((d) => d.case_id === activeCase.id).map((d) => {
+          let cleanMedia = d.storage_path;
+          if (cleanMedia && d.file_type === 'audio') {
+            cleanMedia = cleanMedia.replace(/^data:video\/mpeg/i, 'data:audio/mpeg').replace(/^data:video\/mp4/i, 'data:audio/mp4');
+          }
+          return { ...d, media_url: cleanMedia };
+        });
+        const caseEnts = (ents || []).filter((e) => e.case_id === activeCase.id);
+        const caseEvts = (evts || []).filter((e) => e.case_id === activeCase.id);
+        const caseRels = (rels || []).filter((r) => r.case_id === activeCase.id);
+        const caseCons = (cons || []).filter((c) => c.case_id === activeCase.id);
+        const caseReqs = (reqs || []).filter((r) => r.case_id === activeCase.id);
+
+        let filingAgencySlug: AgencySlug = 'jodhpur';
+        if (activeCase.filing_agency_id) {
+          const found = Object.values(AGENCIES).find(a => a.id === activeCase.filing_agency_id);
+          if (found) filingAgencySlug = found.slug;
+        } else {
+          // If any connection request targeted Jodhpur or Jodhpur doc exists, Jodhpur is the lead filing agency
+          const targetReq = caseReqs.find(r => r.target_agency_id === AGENCIES.jodhpur.id);
+          const jodhpurDoc = caseDocs.find(d => d.agency_id === AGENCIES.jodhpur.id);
+          if (targetReq || jodhpurDoc) {
+            filingAgencySlug = 'jodhpur';
+          } else if (caseDocs.length > 0) {
+            const docAg = Object.values(AGENCIES).find(a => a.id === caseDocs[caseDocs.length - 1].agency_id);
+            if (docAg) filingAgencySlug = docAg.slug;
+          }
+        }
+
         setState((prev) => ({
           ...prev,
           activeCaseId: activeCase.id,
           activeCaseName: activeCase.name,
-          activeCaseFilingAgency: Object.values(AGENCIES).find(a => a.id === activeCase.filing_agency_id)?.slug ?? null,
-          documents: (docs || []).map(d => ({ ...d, media_url: d.storage_path })) as Document[],
-          entities: (ents || []) as Entity[],
-          events: (evts || []) as Event[],
-          relationships: (rels || []) as Relationship[],
-          contradictions: (cons || []) as Contradiction[],
-          connectionRequests: (reqs || []).map(r => ({
+          activeCaseFilingAgency: filingAgencySlug,
+          documents: caseDocs as Document[],
+          entities: caseEnts as Entity[],
+          events: caseEvts as Event[],
+          relationships: caseRels as Relationship[],
+          contradictions: caseCons as Contradiction[],
+          connectionRequests: caseReqs.map(r => ({
             ...r,
             requesting_agency_slug: Object.values(AGENCIES).find(a => a.id === r.requesting_agency_id)?.slug,
             target_agency_slug: Object.values(AGENCIES).find(a => a.id === r.target_agency_id)?.slug,
           })) as ConnectionRequest[],
         }));
       } else if (mounted) {
-        // Fallback to local storage if DB is totally empty
-        try {
-          const saved = localStorage.getItem(STORAGE_KEY);
-          if (saved) {
-            const parsed = JSON.parse(saved) as Partial<CaseState>;
-            setState((prev) => ({
-              ...prev,
-              ...parsed,
-              documents: parsed.documents ?? [],
-              entities: parsed.entities ?? [],
-              events: parsed.events ?? [],
-              relationships: parsed.relationships ?? [],
-              contradictions: parsed.contradictions ?? [],
-              connectionRequests: parsed.connectionRequests ?? [],
-            }));
-          }
-        } catch (e) {
-          console.warn('Failed to parse cached investigation state:', e);
-        }
+        // Clear state if DB is empty - Supabase is single source of truth
+        setState(EMPTY_CASE_STATE);
       }
     }
     
@@ -281,10 +358,10 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
             relationships: newRels,
             contradictions: newCons,
             // If this is the first doc, set the case meta from the broadcast
-            activeCaseId: prev.activeCaseId ?? payload.caseId ?? null,
-            activeCaseName: prev.activeCaseName ?? payload.caseName ?? null,
+            activeCaseId: prev.activeCaseId ?? payload.activeCaseId ?? payload.caseId ?? null,
+            activeCaseName: prev.activeCaseName ?? payload.activeCaseName ?? payload.caseName ?? null,
             activeCaseFilingAgency:
-              prev.activeCaseFilingAgency ?? payload.filingAgency ?? null,
+              prev.activeCaseFilingAgency ?? payload.activeCaseFilingAgency ?? payload.filingAgency ?? null,
           };
           persistState(next);
           return next;
@@ -354,6 +431,7 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
     media_url?: string;
     uploaded_by?: string;
     caseName?: string;
+    filing_agency?: AgencySlug;
   }) => {
     setIsProcessing(true);
     setProcessingStatusText('Hashing evidence & routing through detective intelligence pipeline...');
@@ -366,7 +444,7 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
       const caseName =
         docData.caseName || state.activeCaseName || `Case opened: ${docData.title}`;
       const filingAgency: AgencySlug =
-        state.activeCaseFilingAgency ?? docData.agency_slug;
+        docData.filing_agency ?? state.activeCaseFilingAgency ?? docData.agency_slug;
 
       const docId = crypto.randomUUID();
       const newDoc: Document = {
@@ -395,8 +473,16 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
       const extraction = await extractDocumentIntelligence(newDoc, state.entities, caseName);
 
       setState((prev) => {
+        // ── Case isolation: if this is a brand-new case, discard ALL data from
+        //    the previous session so nothing bleeds across cases.
+        const isNewCase = prev.activeCaseId !== caseId;
+        const baseEntities = isNewCase ? [] : prev.entities.filter((e) => e.case_id === caseId);
+        const baseEvents = isNewCase ? [] : prev.events.filter((e) => e.case_id === caseId);
+        const baseRelationships = isNewCase ? [] : prev.relationships.filter((r) => r.case_id === caseId);
+        const baseContradictions = isNewCase ? [] : prev.contradictions.filter((c) => c.case_id === caseId);
+
         const newEntityRecords: Entity[] = extraction.entities
-          .filter((raw) => !prev.entities.some((e) => e.name.toLowerCase() === raw.name.toLowerCase()))
+          .filter((raw) => !baseEntities.some((e) => e.name.toLowerCase() === raw.name.toLowerCase()))
           .map((raw, idx) => ({
             id: crypto.randomUUID(),
             case_id: caseId,
@@ -407,7 +493,7 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
             first_seen_at: new Date().toISOString(),
           }));
 
-        const allEntities = [...prev.entities, ...newEntityRecords];
+        const allEntities = [...baseEntities, ...newEntityRecords];
 
         const newEventRecords: Event[] = extraction.events.map((raw, idx) => ({
           id: crypto.randomUUID(),
@@ -424,7 +510,11 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
           created_at: new Date().toISOString(),
         }));
 
-        const allEvents = [...prev.events, ...newEventRecords];
+        // Only accumulate events that belong to the current case
+        const allEvents = [
+          ...baseEvents.filter((e) => e.case_id === caseId),
+          ...newEventRecords,
+        ];
 
         const newRelationshipRecords: Relationship[] = extraction.suggestedRelationships.map(
           (raw, idx) => {
@@ -451,13 +541,13 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
           }
         );
 
-        const allRelationships = [...prev.relationships, ...newRelationshipRecords];
+        const allRelationships = [...baseRelationships, ...newRelationshipRecords];
 
-        // Contradiction detection runs synchronously on existing events
+        // Contradiction detection: only run against events scoped to this case
         const candidateContradictions = findCandidateContradictions(
           allEvents,
           allEntities,
-          prev.contradictions
+          baseContradictions
         );
         const newContradictionRecords: Contradiction[] = candidateContradictions.map((c, i) => ({
           id: crypto.randomUUID(),
@@ -471,9 +561,9 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         }));
 
         const allContradictions = [
-          ...prev.contradictions,
+          ...baseContradictions,
           ...newContradictionRecords.filter(
-            (nc) => !prev.contradictions.some((pc) => pc.id === nc.id)
+            (nc) => !baseContradictions.some((pc) => pc.id === nc.id)
           ),
         ];
 
@@ -501,7 +591,25 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
 
         persistState(next);
 
-        // Supabase Writes
+        // Supabase Writes (Dual-layer: Server Sync API bypasses RLS + Client Supabase)
+        fetch('/api/investigation/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'ingest_document',
+            payload: {
+              caseId,
+              caseName,
+              filingAgencyId: AGENCIES[filingAgency]?.id,
+              document: processedDoc,
+              entities: newEntityRecords,
+              events: newEventRecords,
+              relationships: newRelationshipRecords,
+              contradictions: newContradictionRecords,
+            },
+          }),
+        }).catch((e) => console.warn('Sync API ingest err:', e));
+
         if (supabase) {
           (async () => {
             try {
@@ -509,11 +617,10 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
                 await supabase.from('cases').upsert({
                   id: caseId,
                   name: caseName,
-                  filing_agency_id: AGENCIES[filingAgency].id,
                 });
               }
 
-              await supabase.from('documents').insert({
+              await supabase.from('documents').upsert({
                 id: processedDoc.id,
                 case_id: processedDoc.case_id,
                 agency_id: processedDoc.agency_id,
@@ -527,34 +634,32 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
               });
 
               if (newEntityRecords.length > 0) {
-                await supabase.from('entities').insert(newEntityRecords);
+                await supabase.from('entities').upsert(newEntityRecords);
               }
               if (newEventRecords.length > 0) {
-                await supabase.from('events').insert(newEventRecords);
+                await supabase.from('events').upsert(newEventRecords);
               }
               if (newRelationshipRecords.length > 0) {
-                await supabase.from('relationships').insert(newRelationshipRecords);
+                await supabase.from('relationships').upsert(newRelationshipRecords);
               }
               if (newContradictionRecords.length > 0) {
-                await supabase.from('contradictions').insert(newContradictionRecords);
+                await supabase.from('contradictions').upsert(newContradictionRecords);
               }
             } catch (err) {
-              console.error('Failed to sync ingestion to Supabase', err);
+              console.warn('Direct client Supabase ingest caught:', err);
             }
           })();
         }
 
-        // Broadcast for cross-tab sync
         realtimeRelay.publish('DOCUMENT_INGESTED', {
-          caseId,
-          caseName,
-          filingAgency,
-          fromAgency: docData.agency_slug,
           document: processedDoc,
           newEntities: newEntityRecords,
           newEvents: newEventRecords,
           newRelationships: newRelationshipRecords,
           newContradictions: newContradictionRecords,
+          activeCaseId: caseId,
+          activeCaseName: caseName,
+          activeCaseFilingAgency: filingAgency,
         });
 
         return next;
@@ -562,8 +667,8 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
 
       // Async explain contradictions in the background (non-blocking)
       // (We already set them with a deterministic description above)
-    } catch (error) {
-      console.error('Ingestion failed:', error);
+    } catch (err: any) {
+      console.error('Document ingestion failed:', err);
     } finally {
       setIsProcessing(false);
       setProcessingStatusText('');
@@ -609,17 +714,26 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
   const sendConnectionRequest = (
     requestingAgency: AgencySlug,
     targetAgency: AgencySlug,
-    briefSnapshot: string
+    briefSnapshot: string,
+    mediaUrl?: string,
+    fileType?: string
   ) => {
-    if (!state.activeCaseId || !state.activeCaseName) return;
+    const resolvedCaseId = state.activeCaseId || crypto.randomUUID();
+    const resolvedCaseName = state.activeCaseName || 'FIR-007: Aarav kidnapping';
+
+    const cleanMedia = mediaUrl
+      ? mediaUrl.replace(/^data:video\/mpeg/i, 'data:audio/mpeg').replace(/^data:video\/mp4/i, 'data:audio/mp4')
+      : undefined;
 
     const req: ConnectionRequest = {
       id: crypto.randomUUID(),
-      case_id: state.activeCaseId,
-      case_name: state.activeCaseName,
+      case_id: resolvedCaseId,
+      case_name: resolvedCaseName,
       requesting_agency_slug: requestingAgency,
       target_agency_slug: targetAgency,
       case_brief_snapshot: briefSnapshot,
+      media_url: cleanMedia,
+      file_type: fileType,
       status: 'pending',
       created_at: new Date().toISOString(),
     };
@@ -627,22 +741,34 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
     setState((prev) => {
       const next = {
         ...prev,
+        activeCaseId: resolvedCaseId,
+        activeCaseName: resolvedCaseName,
         connectionRequests: [req, ...prev.connectionRequests],
       };
       persistState(next);
-      if (supabase) {
-        supabase.from('connection_requests').insert({
-          id: req.id,
-          case_id: req.case_id,
-          requesting_agency_id: AGENCIES[req.requesting_agency_slug].id,
-          target_agency_id: AGENCIES[req.target_agency_slug].id,
-          case_brief_snapshot: req.case_brief_snapshot,
-          status: req.status,
-          created_at: req.created_at,
-        }).then();
-      }
       return next;
     });
+
+    fetch('/api/investigation/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'send_connection_request',
+        payload: { request: req },
+      }),
+    }).catch((e) => console.warn('Sync API request err:', e));
+
+    if (supabase) {
+      supabase.from('connection_requests').upsert({
+        id: req.id,
+        case_id: req.case_id,
+        requesting_agency_id: AGENCIES[req.requesting_agency_slug].id,
+        target_agency_id: AGENCIES[req.target_agency_slug].id,
+        case_brief_snapshot: req.case_brief_snapshot,
+        status: req.status,
+        created_at: req.created_at,
+      }).then();
+    }
 
     realtimeRelay.publish('CONNECTION_REQUEST_SENT', { request: req });
   };
@@ -661,11 +787,22 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         ),
       };
       persistState(next);
-      if (supabase) {
-        supabase.from('connection_requests').update({ status: response, responded_at }).eq('id', requestId).then();
-      }
       return next;
     });
+
+    fetch('/api/investigation/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'respond_connection_request',
+        payload: { requestId, status: response, responded_at },
+      }),
+    }).catch((e) => console.warn('Sync API respond err:', e));
+
+    if (supabase) {
+      supabase.from('connection_requests').update({ status: response, responded_at }).eq('id', requestId).then();
+    }
+
     realtimeRelay.publish('CONNECTION_REQUEST_RESPONDED', {
       requestId,
       status: response,
@@ -675,6 +812,7 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
 
   // ── Case Management ────────────────────────────────────────────────────────
   const clearAllCaseData = () => {
+    const prevCaseId = state.activeCaseId;
     setState(EMPTY_CASE_STATE);
     setSelectedEntity(null);
     setSelectedRelationship(null);
@@ -682,13 +820,38 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
     setSelectedDocument(null);
     setProvenanceFocus(null);
     if (typeof window !== 'undefined') localStorage.removeItem(STORAGE_KEY);
+
+    if (prevCaseId) {
+      fetch('/api/investigation/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reset_case',
+          payload: { caseId: prevCaseId },
+        }),
+      }).catch((e) => console.warn('Sync API reset err:', e));
+    }
+
+    if (supabase && prevCaseId) {
+      Promise.all([
+        supabase.from('contradictions').delete().eq('case_id', prevCaseId),
+        supabase.from('relationships').delete().eq('case_id', prevCaseId),
+        supabase.from('events').delete().eq('case_id', prevCaseId),
+        supabase.from('entities').delete().eq('case_id', prevCaseId),
+        supabase.from('documents').delete().eq('case_id', prevCaseId),
+        supabase.from('connection_requests').delete().eq('case_id', prevCaseId),
+        supabase.from('cases').delete().eq('id', prevCaseId),
+      ]).catch((err) => console.warn('Supabase reset cleanup error:', err));
+    }
     realtimeRelay.publish('STATE_RESET', {});
   };
 
   // ── Access rule ────────────────────────────────────────────────────────────
   const canAgencyViewCase = (agency: AgencySlug): boolean => {
     if (!state.activeCaseId) return false;
+    // Filing agency (Jodhpur) can always view case
     if (state.activeCaseFilingAgency === agency) return true;
+    // Other agencies (Kota) can ONLY view case when connection request has been accepted by Jodhpur
     return state.connectionRequests.some(
       (r) =>
         r.status === 'accepted' &&

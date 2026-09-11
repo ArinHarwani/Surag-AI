@@ -29,6 +29,7 @@ export const NexusShell: React.FC<NexusShellProps> = ({
   const [currentTab, setCurrentTab] = useState<NexusNavTab>(initialTab);
   const [isAddCaseOpen, setIsAddCaseOpen] = useState(false);
   const [isConnectOpen, setIsConnectOpen] = useState(false);
+  const [connectTargetAgency, setConnectTargetAgency] = useState<AgencySlug | undefined>(undefined);
   const [isRequestsPanelOpen, setIsRequestsPanelOpen] = useState(false);
 
   const {
@@ -43,6 +44,7 @@ export const NexusShell: React.FC<NexusShellProps> = ({
     pendingIncomingRequests,
     acceptedLinkedAgencies,
     canAgencyViewCase,
+    agencies,
     isProcessing,
     processingStatusText,
     provenanceFocus,
@@ -86,14 +88,21 @@ export const NexusShell: React.FC<NexusShellProps> = ({
   const visibleRelationships = canView ? relationships : [];
   const visibleContradictions = canView ? contradictions : [];
 
+  // Check if this portal has a pending transmission awaiting acceptance
+  const pendingOutgoingReq = connectionRequests.find(
+    (r) =>
+      r.status === 'pending' &&
+      r.requesting_agency_slug === scopedAgency
+  );
+  const hasPendingRequest = !canView && !!pendingOutgoingReq;
+
   // Check if a connection request is already pending or accepted for this portal → case
   const hasExistingRequest =
-    !!documents.length &&
     connectionRequests.some(
       (r) =>
         r.requesting_agency_slug === scopedAgency &&
-        r.case_id === documents[0]?.case_id
-    );
+        (!activeCaseName || r.case_name === activeCaseName || r.case_id === activeCaseName)
+    ) || !!pendingOutgoingReq;
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#EFECE6] text-[#111111] font-mono selection:bg-[#F5C842] selection:text-black">
@@ -102,7 +111,10 @@ export const NexusShell: React.FC<NexusShellProps> = ({
         currentTab={currentTab}
         scopedAgency={scopedAgency}
         onOpenUpload={() => setIsAddCaseOpen(true)}
-        onOpenConnect={() => setIsConnectOpen(true)}
+        onOpenConnect={(targetCity) => {
+          setConnectTargetAgency(targetCity);
+          setIsConnectOpen(true);
+        }}
         onResetCase={clearAllCaseData}
         onSelectTab={setCurrentTab}
         isProcessing={isProcessing}
@@ -143,8 +155,21 @@ export const NexusShell: React.FC<NexusShellProps> = ({
               acceptedLinkedAgencies={acceptedLinkedAgencies}
               activeCaseName={activeCaseName}
               activeCaseFilingAgency={activeCaseFilingAgency}
+              hasPendingRequest={hasPendingRequest}
+              pendingRequestDetails={
+                pendingOutgoingReq
+                  ? {
+                      targetAgencyName:
+                        agencies[pendingOutgoingReq.target_agency_slug]?.name || 'Jodhpur Police HQ',
+                      caseName: pendingOutgoingReq.case_name,
+                      createdAt: pendingOutgoingReq.created_at,
+                      briefSnapshot: pendingOutgoingReq.case_brief_snapshot,
+                    }
+                  : null
+              }
               onOpenUpload={() => setIsAddCaseOpen(true)}
               onOpenConnect={() => setIsConnectOpen(true)}
+              onOpenRequestsPanel={() => setIsRequestsPanelOpen(true)}
               onSelectTab={setCurrentTab}
               onConfirmRelationship={(id) => updateRelationshipStatus(id, 'confirmed')}
               onDismissRelationship={(id) => updateRelationshipStatus(id, 'dismissed')}
@@ -220,6 +245,7 @@ export const NexusShell: React.FC<NexusShellProps> = ({
         <AddNewCaseModal
           onClose={() => setIsAddCaseOpen(false)}
           filingAgency={scopedAgency}
+          isAddingEvidence={documents.length > 0}
         />
       )}
 
@@ -230,6 +256,7 @@ export const NexusShell: React.FC<NexusShellProps> = ({
           caseId={documents[0]?.case_id ?? ''}
           caseName={activeCaseName ?? 'Active Case'}
           documents={documents}
+          targetAgency={connectTargetAgency}
         />
       )}
 

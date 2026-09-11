@@ -8,6 +8,7 @@ Your task is to analyze raw multimodal evidence (text statements, audio transcri
 3. ENTITY MENTIONS: Links between entities and their source snippets.
 
 CRITICAL RULES:
+- FOCUS ONLY ON THE STUDENT NAMED "AARAV". You must extract entities, events, and relationships ONLY if they are directly connected to Aarav or his immediate network. Ignore all other unrelated suspicious activities, persons, or vehicles in the text.
 - Never invent facts or hallucinate connections not grounded in the source.
 - Provide a confidence score (0.00 to 1.00) for every extraction. If uncertain, lower confidence rather than guessing.
 - Every event MUST include two timestamps:

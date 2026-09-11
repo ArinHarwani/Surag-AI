@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   title: 'SURAG-AI — Collaborative Investigative Intelligence Platform',
   description:
     'From Fragmented Signals to an Explainable Intelligence Picture. Classified Joint Operational Fusion Command for Jodhpur and Kota Police forces.',
+  icons: {
+    icon: '/rajasthan-police-logo.png',
+  },
 };
 
 export default function RootLayout({

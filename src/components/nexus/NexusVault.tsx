@@ -23,7 +23,8 @@ import {
   SlidersHorizontal,
   Layers,
   AlertTriangle,
-  FolderPlus
+  FolderPlus,
+  X,
 } from 'lucide-react';
 import { Document, Entity, FileType } from '@/types/investigation';
 import { formatTimeIST } from '@/lib/utils/formatDate';
@@ -44,6 +45,7 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedModality, setSelectedModality] = useState<string>('all');
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const [expandedImage, setExpandedImage] = useState<{ url: string; title: string } | null>(null);
 
   const filteredDocs = documents.filter((doc) => {
     const matchesSearch = 
@@ -138,6 +140,8 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
 
           {[
             { label: 'ALL MODALITIES', value: 'all', count: documents.length },
+            { label: 'PDF DOSSIERS', value: 'pdf', count: documents.filter(d => d.file_type === 'pdf').length },
+            { label: 'CSV DATA', value: 'csv', count: documents.filter(d => d.file_type === 'csv').length },
             { label: 'AUDIO INTERCEPTS', value: 'audio', count: documents.filter(d => d.file_type === 'audio').length },
             { label: 'IMAGE & CCTV', value: 'image', count: documents.filter(d => d.file_type === 'image').length },
             { label: 'TEXT & STATEMENTS', value: 'text', count: documents.filter(d => d.file_type === 'text').length },
@@ -212,7 +216,17 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
                   <div className="flex items-center justify-between border-b border-black pb-2">
                     <div className="flex items-center space-x-2">
                       <div className="p-1.5 bg-black text-[#F5C842]">
-                        {isAudio ? <Music className="w-4 h-4" /> : isImage ? <ImageIcon className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                        {isAudio ? (
+                          <Music className="w-4 h-4" />
+                        ) : isImage ? (
+                          <ImageIcon className="w-4 h-4" />
+                        ) : doc.file_type === 'pdf' ? (
+                          <FileText className="w-4 h-4 text-red-400" />
+                        ) : doc.file_type === 'csv' ? (
+                          <FileText className="w-4 h-4 text-emerald-500" />
+                        ) : (
+                          <FileText className="w-4 h-4" />
+                        )}
                       </div>
                       <div>
                         <div className="text-[11px] font-bold text-slate-600 uppercase">
@@ -235,8 +249,21 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center space-x-3">
                           <button
-                            onClick={() => setPlayingAudioId(isPlaying ? null : doc.id)}
-                            className="w-8 h-8 rounded-full bg-black text-[#F5C842] flex items-center justify-center font-bold shadow-sm hover:scale-105 transition"
+                            onClick={() => {
+                              const audioEl = document.getElementById(`audio-player-${doc.id}`) as HTMLAudioElement | null;
+                              if (audioEl) {
+                                if (isPlaying) {
+                                  audioEl.pause();
+                                  setPlayingAudioId(null);
+                                } else {
+                                  audioEl.play().catch(() => {});
+                                  setPlayingAudioId(doc.id);
+                                }
+                              } else {
+                                setPlayingAudioId(isPlaying ? null : doc.id);
+                              }
+                            }}
+                            className="w-8 h-8 rounded-full bg-black text-[#F5C842] flex items-center justify-center font-bold shadow-sm hover:scale-105 transition cursor-pointer"
                           >
                             {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 ml-0.5 fill-current" />}
                           </button>
@@ -251,6 +278,19 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
                           </span>
                         </div>
                       </div>
+
+                      {/* Native HTML5 Audio Player for actual playback */}
+                      {doc.media_url && (
+                        <audio
+                          id={`audio-player-${doc.id}`}
+                          controls
+                          className="w-full h-9 border border-black bg-white"
+                          src={doc.media_url.replace(/^data:video\/mpeg/i, 'data:audio/mpeg').replace(/^data:video\/mp4/i, 'data:audio/mp4')}
+                          onPlay={() => setPlayingAudioId(doc.id)}
+                          onPause={() => setPlayingAudioId(null)}
+                          onEnded={() => setPlayingAudioId(null)}
+                        />
+                      )}
 
                       {/* Waveform */}
                       <div className="relative h-10 bg-white border border-black rounded-xs flex items-center px-2 overflow-hidden">
@@ -269,20 +309,123 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
 
                   {/* Image/CCTV preview */}
                   {isImage && (
-                    <div className="bg-[#111111] text-white border-2 border-black p-4 flex flex-col items-center justify-center relative min-h-[120px]">
-                      <div className="border border-dashed border-emerald-500 w-full p-4 flex flex-col items-center justify-center bg-emerald-950/20">
-                        <ImageIcon className="w-8 h-8 text-emerald-400 mb-1" />
-                        <span className="text-xs font-mono text-slate-200 font-bold uppercase">
-                          {doc.title} // OPTICAL FORENSIC CAPTURE
-                        </span>
+                    <div className="bg-[#111111] text-white border-2 border-black p-3 flex flex-col items-center justify-center relative">
+                      {doc.media_url ? (
+                        <div className="relative group w-full flex flex-col items-center">
+                          <img
+                            src={doc.media_url}
+                            alt={doc.title}
+                            className="max-h-72 w-auto object-contain border border-neutral-700 shadow-md cursor-pointer hover:opacity-95 transition"
+                            onClick={() => setExpandedImage({ url: doc.media_url!, title: doc.title })}
+                          />
+                          <div className="mt-2 flex items-center justify-between w-full text-[10px] font-mono text-neutral-300 px-1 border-t border-neutral-800 pt-1.5">
+                            <span className="text-[#F5C842] font-black uppercase">
+                              OPTICAL FORENSIC CAPTURE // {doc.title}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedImage({ url: doc.media_url!, title: doc.title })}
+                              className="text-emerald-400 hover:text-emerald-300 font-bold underline flex items-center gap-1 cursor-pointer"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              <span>CLICK TO ENLARGE</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="border border-dashed border-emerald-500 w-full p-4 flex flex-col items-center justify-center bg-emerald-950/20">
+                          <ImageIcon className="w-8 h-8 text-emerald-400 mb-1" />
+                          <span className="text-xs font-mono text-slate-200 font-bold uppercase">
+                            {doc.title} // OPTICAL FORENSIC CAPTURE
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Video preview */}
+                  {doc.file_type === 'video' && (
+                    <div className="bg-[#111111] text-white border-2 border-black p-3 flex flex-col items-center justify-center">
+                      {doc.media_url ? (
+                        <video
+                          controls
+                          className="max-h-72 w-full object-contain border border-neutral-700 bg-black"
+                          src={doc.media_url}
+                        />
+                      ) : (
+                        <div className="border border-dashed border-amber-500 w-full p-4 flex flex-col items-center justify-center bg-amber-950/20">
+                          <span className="text-xs font-mono text-slate-200 font-bold uppercase">
+                            {doc.title} // VIDEO RECORDING
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* PDF Document Preview Banner */}
+                  {doc.file_type === 'pdf' && (
+                    <div className="bg-[#1C1917] border-2 border-black p-3.5 flex items-center justify-between shadow-brutal text-white font-mono">
+                      <div className="flex items-center space-x-3">
+                        <div className="px-2 py-1 bg-red-600 text-white font-black text-xs border border-white">
+                          PDF
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-[#F5C842] uppercase block">
+                            OFFICIAL CASE DOSSIER // DOCUMENT EXHIBIT
+                          </span>
+                          <span className="text-[10px] text-slate-300">
+                            Full extracted textual records available for investigator review below.
+                          </span>
+                        </div>
                       </div>
+                      {doc.media_url && (
+                        <a
+                          href={doc.media_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download={`${doc.title}.pdf`}
+                          className="px-3 py-1.5 bg-[#F5C842] text-black font-black text-xs uppercase border border-black hover:bg-yellow-400 transition"
+                        >
+                          OPEN / DOWNLOAD PDF ↗
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  {/* CSV Document Preview Banner */}
+                  {doc.file_type === 'csv' && (
+                    <div className="bg-[#1C1917] border-2 border-black p-3.5 flex items-center justify-between shadow-brutal text-white font-mono">
+                      <div className="flex items-center space-x-3">
+                        <div className="px-2 py-1 bg-emerald-600 text-white font-black text-xs border border-white">
+                          CSV
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-[#F5C842] uppercase block">
+                            STRUCTURED LOG // ANALYTICAL DATA
+                          </span>
+                          <span className="text-[10px] text-slate-300">
+                            Raw CSV data processed into structured entity telemetry.
+                          </span>
+                        </div>
+                      </div>
+                      {doc.media_url && (
+                        <a
+                          href={doc.media_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download={`${doc.title}.csv`}
+                          className="px-3 py-1.5 bg-[#F5C842] text-black font-black text-xs uppercase border border-black hover:bg-yellow-400 transition"
+                        >
+                          OPEN / DOWNLOAD CSV ↗
+                        </a>
+                      )}
                     </div>
                   )}
 
                   {/* Content / Transcript */}
                   <div className="space-y-1.5 pt-1">
                     <div className="flex items-center justify-between text-[11px] font-black uppercase text-slate-700">
-                      <span>{isAudio ? 'SYNCHRONIZED TRANSCRIPT' : 'INGESTED FORENSIC CONTENT'}</span>
+                      <span>{isAudio ? 'SYNCHRONIZED TRANSCRIPT' : doc.file_type === 'pdf' ? 'PARSED PDF TEXT RECORD' : doc.file_type === 'csv' ? 'PARSED CSV TEXT RECORD' : 'INGESTED FORENSIC CONTENT'}</span>
                       <span className="text-blue-700">EXTRACTED STREAM</span>
                     </div>
 
@@ -361,6 +504,38 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Lightbox Enlarge Modal */}
+      {expandedImage && (
+        <div
+          className="fixed inset-0 z-[250] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setExpandedImage(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] bg-black border-2 border-[#F5C842] shadow-brutal-lg flex flex-col p-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-800 text-white font-mono text-xs mb-2">
+              <span className="font-black text-[#F5C842] uppercase tracking-wider">
+                FORENSIC IMAGE VIEWER // {expandedImage.title}
+              </span>
+              <button
+                onClick={() => setExpandedImage(null)}
+                className="p-1 hover:bg-white/20 text-white transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto flex items-center justify-center bg-black">
+              <img
+                src={expandedImage.url}
+                alt={expandedImage.title}
+                className="max-h-[75vh] w-auto object-contain"
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>

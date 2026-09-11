@@ -1,12 +1,14 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  Shield,
   RotateCcw,
   FolderPlus,
   Link2,
   CheckCircle2,
+  ChevronDown,
+  MapPin,
+  Send,
 } from 'lucide-react';
 import { NexusNavTab } from './NexusSidebar';
 import { AgencySlug } from '@/types/investigation';
@@ -15,7 +17,7 @@ interface NexusHeaderProps {
   currentTab?: NexusNavTab;
   scopedAgency: AgencySlug;
   onOpenUpload: () => void;
-  onOpenConnect: () => void;
+  onOpenConnect: (targetAgency?: AgencySlug) => void;
   onResetCase: () => void;
   onSelectTab?: (tab: NexusNavTab) => void;
   isProcessing: boolean;
@@ -44,12 +46,42 @@ const AGENCY_CONFIG: Record<AgencySlug, {
     accentColor: '#D97706',
     badge: 'KOTA-CID',
   },
+  jaipur: {
+    label: 'JAIPUR POLICE HQ',
+    sublabel: 'State Command Center // Sector RJ-14',
+    accentColor: '#059669',
+    badge: 'JAIPUR-HQ',
+  },
+  ajmer: {
+    label: 'AJMER DISTRICT POLICE',
+    sublabel: 'District Intelligence // Sector RJ-01',
+    accentColor: '#7C3AED',
+    badge: 'AJMER-DIST',
+  },
+  jaisalmer: {
+    label: 'JAISALMER BORDER POLICE',
+    sublabel: 'Border Security Wing // Sector RJ-15',
+    accentColor: '#DC2626',
+    badge: 'JAISALMER-BORDER',
+  },
 };
 
 const PARTNER_LABELS: Record<AgencySlug, string> = {
   jodhpur: 'KOTA POLICE CID',
   kota: 'JODHPUR POLICE HQ',
+  jaipur: 'JODHPUR POLICE HQ',
+  ajmer: 'KOTA POLICE CID',
+  jaisalmer: 'JODHPUR POLICE HQ',
 };
+
+// Cities available for cross-agency reporting/connection
+const ALL_REPORTING_CITIES: Array<{ slug: AgencySlug; label: string; sublabel: string }> = [
+  { slug: 'jodhpur', label: 'JODHPUR', sublabel: 'Jodhpur Police HQ' },
+  { slug: 'kota', label: 'KOTA', sublabel: 'Kota Police CID' },
+  { slug: 'jaipur', label: 'JAIPUR', sublabel: 'Rajasthan Police HQ' },
+  { slug: 'ajmer', label: 'AJMER', sublabel: 'Ajmer District Police' },
+  { slug: 'jaisalmer', label: 'JAISALMER', sublabel: 'Jaisalmer Border Police' },
+];
 
 export const NexusHeader: React.FC<NexusHeaderProps> = ({
   scopedAgency,
@@ -66,18 +98,36 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
   const cfg = AGENCY_CONFIG[scopedAgency];
   const partnerLabel = PARTNER_LABELS[scopedAgency];
   const isLinked = acceptedLinkedAgencies.length > 0;
+  const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+
+  const isKota = scopedAgency === 'kota';
+
+  // Dynamic reporting cities: remove current agency and customize role labels
+  const availableCities = ALL_REPORTING_CITIES
+    .filter((c) => c.slug !== scopedAgency)
+    .map((c) => {
+      if (isKota && c.slug === 'jodhpur') {
+        return { ...c, sublabel: 'Jodhpur Police HQ (Transmit Evidence)' };
+      }
+      if (!isKota && c.slug === 'kota') {
+        return { ...c, sublabel: 'Kota Police CID (Send Case Brief)' };
+      }
+      return c;
+    });
 
   return (
     <header className="bg-[#EFECE6] border-b-2 border-black text-black px-5 py-3 sticky top-0 z-30 select-none font-mono w-full shadow-xs shrink-0">
       <div className="flex flex-wrap items-center justify-between gap-3">
 
         {/* LEFT: Logo + Agency Identity */}
-        <div className="flex items-center gap-4">
-          <div
-            className="w-11 h-11 rounded-md flex items-center justify-center shadow-brutal border-2 border-black shrink-0"
-            style={{ backgroundColor: cfg.accentColor }}
-          >
-            <Shield className="w-6 h-6 text-white stroke-[2.2]" />
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-black shadow-brutal bg-white p-0.5 flex items-center justify-center shrink-0">
+            <img
+              src="/rajasthan-police-logo.png"
+              alt="Rajasthan Police Emblem"
+              className="w-full h-full object-contain rounded-full"
+            />
           </div>
           <div className="flex flex-col justify-center">
             <h1 className="text-xl sm:text-2xl font-black tracking-widest text-black uppercase leading-none font-mono">
@@ -120,34 +170,67 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
             </div>
           </div>
 
-          {/* REPORT / CONNECT TO — only shown when a case exists and not already requested */}
-          {hasActiveCase && !hasExistingConnectionRequest && !isLinked && (
-            <button
-              onClick={onOpenConnect}
-              title={`Send cross-agency connection request to ${partnerLabel}`}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 border-2 border-black shadow-brutal text-xs font-black transition active:translate-x-0.5 active:translate-y-0.5"
-            >
-              <Link2 className="w-3.5 h-3.5 text-slate-700" />
-              <span>REPORT / CONNECT TO {partnerLabel}</span>
-            </button>
+          {/* REPORT / CONNECT TO — city dropdown tile */}
+          {!hasExistingConnectionRequest && !isLinked && (
+            <div className="relative">
+              <button
+                onClick={() => setCityDropdownOpen((o) => !o)}
+                title={isKota ? "Select agency to transmit evidence to" : "Select city to report / connect to"}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 border-2 border-black shadow-brutal text-xs font-black transition active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+              >
+                {isKota ? (
+                  <Send className="w-3.5 h-3.5 text-slate-700" />
+                ) : (
+                  <MapPin className="w-3.5 h-3.5 text-slate-700" />
+                )}
+                <span>
+                  {selectedCity
+                    ? (isKota ? `TRANSMIT EVIDENCE: ${selectedCity}` : `REPORT TO: ${selectedCity}`)
+                    : (isKota ? 'TRANSMIT EVIDENCE TO' : 'REPORT / CONNECT TO')}
+                </span>
+                <ChevronDown className={`w-3 h-3 transition-transform ${cityDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {cityDropdownOpen && (
+                <div className="absolute right-0 top-full mt-1 w-64 bg-white border-2 border-black shadow-brutal z-50">
+                  {availableCities.map((city) => (
+                    <button
+                      key={city.label}
+                      onClick={() => {
+                        setSelectedCity(city.label);
+                        setCityDropdownOpen(false);
+                        if (hasActiveCase) {
+                          onOpenConnect(city.slug);
+                        } else {
+                          onOpenUpload();
+                        }
+                      }}
+                      className="w-full text-left px-4 py-2.5 hover:bg-[#F5C842] transition flex flex-col border-b border-black/10 last:border-0 cursor-pointer"
+                    >
+                      <span className="text-xs font-black uppercase text-black">{city.label}</span>
+                      <span className="text-[10px] text-slate-500 font-bold">{city.sublabel}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {/* Pending request state */}
           {hasExistingConnectionRequest && !isLinked && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border-2 border-amber-500 text-amber-800 text-xs font-black">
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-              <span>REQUEST PENDING — {partnerLabel}</span>
+              <span>REQUEST PENDING — {selectedCity || partnerLabel}</span>
             </div>
           )}
 
-          {/* Add New Case Button */}
+          {/* Add Evidence / Add New Case Button */}
           <button
             onClick={onOpenUpload}
             className="px-4 py-2 text-black font-black text-xs border-2 border-black shadow-brutal flex items-center space-x-1.5 transition active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
             style={{ backgroundColor: '#F5C842' }}
           >
             <FolderPlus className="w-4 h-4 stroke-[2.5]" />
-            <span>+ ADD NEW CASE</span>
+            <span>{hasActiveCase ? '+ ADD EVIDENCE' : '+ ADD NEW CASE'}</span>
           </button>
 
           {/* Reset Demo Button */}

@@ -30,20 +30,28 @@ export const supabase = client;
 export class RealtimeRelay {
   private broadcastChannel: BroadcastChannel | null = null;
   private channelName: string;
+  private supabaseChannel: ReturnType<SupabaseClient['channel']> | null = null;
 
   constructor(channelName = 'investigation-intel-channel') {
     this.channelName = channelName;
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       this.broadcastChannel = new BroadcastChannel(this.channelName);
     }
+    if (typeof window !== 'undefined' && supabase) {
+      try {
+        this.supabaseChannel = supabase.channel(this.channelName);
+        this.supabaseChannel.subscribe();
+      } catch (err) {
+        console.warn('Supabase channel init warning:', err);
+      }
+    }
   }
 
   public publish(event: string, payload: unknown) {
-    // 1. If Supabase client exists, send broadcast
-    if (supabase) {
+    // 1. If Supabase client exists, send broadcast over subscribed channel
+    if (this.supabaseChannel) {
       try {
-        const chan = supabase.channel(this.channelName);
-        chan.send({
+        this.supabaseChannel.send({
           type: 'broadcast',
           event,
           payload,
@@ -71,15 +79,11 @@ export class RealtimeRelay {
     }
 
     // Also listen to Supabase if connected
-    let supabaseSub: ReturnType<SupabaseClient['channel']> | null = null;
-    if (supabase) {
+    if (this.supabaseChannel) {
       try {
-        supabaseSub = supabase.channel(this.channelName);
-        supabaseSub
-          .on('broadcast', { event: '*' }, (payload) => {
-            callback(payload.event, payload.payload);
-          })
-          .subscribe();
+        this.supabaseChannel.on('broadcast', { event: '*' }, (payload) => {
+          callback(payload.event, payload.payload);
+        });
       } catch (e) {
         console.warn('Supabase subscribe failed:', e);
       }
@@ -88,9 +92,6 @@ export class RealtimeRelay {
     return () => {
       if (this.broadcastChannel) {
         this.broadcastChannel.removeEventListener('message', handleMessage);
-      }
-      if (supabase && supabaseSub) {
-        supabase.removeChannel(supabaseSub);
       }
     };
   }

@@ -2,6 +2,7 @@
 
 import React, { useRef } from 'react';
 import { Document } from '@/types/investigation';
+import { useInvestigation } from '@/lib/store/investigation-context';
 import { 
   X, 
   FileText, 
@@ -31,6 +32,7 @@ export const NexusProvenanceInspector: React.FC<ProvenanceInspectorProps> = ({
 }) => {
   const [copied, setCopied] = React.useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { agencies } = useInvestigation();
 
   if (!document) return null;
 
@@ -38,6 +40,13 @@ export const NexusProvenanceInspector: React.FC<ProvenanceInspectorProps> = ({
   const filename = document.title;
   const fullContent = document.content_text || '';
   const displaySnippet = snippet || fullContent.slice(0, 200);
+
+  // Resolve agency label from the agencies map using the UUID-based agency_id
+  const depositingAgencyLabel = document.agency_id
+    ? Object.values(agencies).find((a) => a.id === document.agency_id)?.name ??
+      // fallback: use slug-based label if present in agency_id string
+      (document.agency_id.toLowerCase().includes('jod') ? 'Jodhpur Police HQ' : 'Unknown Agency')
+    : 'Unknown Agency';
 
   const copyCitation = () => {
     const text = `[CITATION: ${filename}] "${displaySnippet}" (Offset: ${sourceOffset})`;
@@ -127,6 +136,44 @@ export const NexusProvenanceInspector: React.FC<ProvenanceInspectorProps> = ({
           </div>
         </div>
 
+        {/* PDF Exhibit Card */}
+        {fileType === 'pdf' && document.media_url && (
+          <div className="p-3 bg-neutral-900 border-2 border-black flex items-center justify-between text-white shadow-brutal font-mono">
+            <div className="flex items-center space-x-2">
+              <FileText className="w-4 h-4 text-red-400 shrink-0" />
+              <span className="text-xs font-bold text-[#F5C842]">OFFICIAL PDF DOSSIER</span>
+            </div>
+            <a
+              href={document.media_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              download={`${filename}.pdf`}
+              className="px-2.5 py-1 bg-[#F5C842] text-black text-xs font-black uppercase border border-black hover:bg-yellow-400 transition"
+            >
+              VIEW / DOWNLOAD PDF ↗
+            </a>
+          </div>
+        )}
+
+        {/* CSV Exhibit Card */}
+        {fileType === 'csv' && document.media_url && (
+          <div className="p-3 bg-neutral-900 border-2 border-black flex items-center justify-between text-white shadow-brutal font-mono">
+            <div className="flex items-center space-x-2">
+              <FileText className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="text-xs font-bold text-[#F5C842]">STRUCTURED CSV DATA</span>
+            </div>
+            <a
+              href={document.media_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              download={`${filename}.csv`}
+              className="px-2.5 py-1 bg-[#F5C842] text-black text-xs font-black uppercase border border-black hover:bg-yellow-400 transition"
+            >
+              VIEW / DOWNLOAD CSV ↗
+            </a>
+          </div>
+        )}
+
         {/* Audio Waveform & Timestamp Player */}
         {fileType === 'audio' && (
           <div className="p-4 bg-white border-2 border-black space-y-3 shadow-brutal">
@@ -207,7 +254,7 @@ export const NexusProvenanceInspector: React.FC<ProvenanceInspectorProps> = ({
             <div>
               <span className="text-slate-600 font-bold block">Depositing Agency:</span>
               <span className="font-black text-black">
-                {document.agency_id.includes('jod') ? 'Jodhpur Police' : 'Kota Police SIU'}
+                {depositingAgencyLabel}
               </span>
             </div>
             <div>
