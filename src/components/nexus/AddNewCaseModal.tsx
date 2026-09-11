@@ -73,14 +73,23 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
     if (!evidenceTitle) setEvidenceTitle(file.name.replace(/\.[^/.]+$/, ''));
 
     const isAudio =
+      fileType === 'audio' ||
       file.type.startsWith('audio/') ||
-      /\.(mp3|wav|m4a|ogg|aac|flac|wma)$/i.test(file.name);
+      /\.(mp3|wav|m4a|ogg|aac|flac|wma|opus|weba|amr|3gp|m4b|mpeg|mpga)$/i.test(file.name) ||
+      /audio|voice|recording|call|wiretap|speech|intercept/i.test(file.name);
 
     if (isAudio) {
       setFileType('audio');
       setIsTranscribing(true);
       setTranscribeStatus('🎙️ Sarvam AI (Saaras): Transcribing speech (English / Hindi)...');
       setContentText(`[Transcribing audio via Sarvam AI (${file.name})... please wait]`);
+
+      // Read audio data URL for real playback and persistence
+      const audioReader = new FileReader();
+      audioReader.onload = (e) => {
+        setMediaUrl(e.target?.result as string);
+      };
+      audioReader.readAsDataURL(file);
 
       try {
         const formData = new FormData();
@@ -121,7 +130,12 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
       return;
     }
 
-    if (file.type.startsWith('image/')) {
+    const isImage =
+      fileType === 'image' ||
+      file.type.startsWith('image/') ||
+      /\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i.test(file.name);
+
+    if (isImage) {
       setFileType('image');
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -145,8 +159,21 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
       return;
     }
 
-    if (file.type.startsWith('video/')) setFileType('video');
-    else setFileType('text');
+    const isVideo =
+      !isAudio &&
+      !isImage &&
+      (fileType === 'video' || file.type.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm)$/i.test(file.name));
+
+    if (isVideo) {
+      setFileType('video');
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setMediaUrl(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setFileType('text');
+    }
 
     if (file.type.includes('text') || file.name.endsWith('.txt') || file.name.endsWith('.log') || file.name.endsWith('.json')) {
       const reader = new FileReader();
@@ -157,7 +184,7 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
         `[Multimodal Ingest: ${file.name}]\nFormat: ${file.type || 'Binary'}\nSize: ${(file.size / 1024).toFixed(1)} KB\nExtracted forensic telemetry ready for Sarvam AI model analysis.`
       );
     }
-  }, [evidenceTitle]);
+  }, [evidenceTitle, fileType]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -398,6 +425,22 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
                       Telemetry populated for Sarvam AI extraction (Car plate, location, date, time).
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Audio Preview Player */}
+              {mediaUrl && fileType === 'audio' && (
+                <div className="border-2 border-black bg-neutral-900 p-3 flex flex-col gap-2 shadow-brutal text-white">
+                  <div className="flex items-center justify-between">
+                    <span className="font-black text-[#F5C842] uppercase text-[11px] flex items-center gap-1.5">
+                      <Volume2 className="w-4 h-4 text-[#F5C842]" />
+                      AUDIO EVIDENCE LOADED
+                    </span>
+                    <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950 px-2 py-0.5 border border-emerald-700">
+                      READY FOR PLAYBACK & SARVAM STT
+                    </span>
+                  </div>
+                  <audio controls className="w-full h-8" src={mediaUrl} />
                 </div>
               )}
 

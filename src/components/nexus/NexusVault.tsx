@@ -237,8 +237,21 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center space-x-3">
                           <button
-                            onClick={() => setPlayingAudioId(isPlaying ? null : doc.id)}
-                            className="w-8 h-8 rounded-full bg-black text-[#F5C842] flex items-center justify-center font-bold shadow-sm hover:scale-105 transition"
+                            onClick={() => {
+                              const audioEl = document.getElementById(`audio-player-${doc.id}`) as HTMLAudioElement | null;
+                              if (audioEl) {
+                                if (isPlaying) {
+                                  audioEl.pause();
+                                  setPlayingAudioId(null);
+                                } else {
+                                  audioEl.play().catch(() => {});
+                                  setPlayingAudioId(doc.id);
+                                }
+                              } else {
+                                setPlayingAudioId(isPlaying ? null : doc.id);
+                              }
+                            }}
+                            className="w-8 h-8 rounded-full bg-black text-[#F5C842] flex items-center justify-center font-bold shadow-sm hover:scale-105 transition cursor-pointer"
                           >
                             {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 ml-0.5 fill-current" />}
                           </button>
@@ -253,6 +266,19 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
                           </span>
                         </div>
                       </div>
+
+                      {/* Native HTML5 Audio Player for actual playback */}
+                      {doc.media_url && (
+                        <audio
+                          id={`audio-player-${doc.id}`}
+                          controls
+                          className="w-full h-9 border border-black bg-white"
+                          src={doc.media_url}
+                          onPlay={() => setPlayingAudioId(doc.id)}
+                          onPause={() => setPlayingAudioId(null)}
+                          onEnded={() => setPlayingAudioId(null)}
+                        />
+                      )}
 
                       {/* Waveform */}
                       <div className="relative h-10 bg-white border border-black rounded-xs flex items-center px-2 overflow-hidden">
@@ -287,7 +313,7 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
                             <button
                               type="button"
                               onClick={() => setExpandedImage({ url: doc.media_url!, title: doc.title })}
-                              className="text-emerald-400 hover:text-emerald-300 font-bold underline flex items-center gap-1"
+                              className="text-emerald-400 hover:text-emerald-300 font-bold underline flex items-center gap-1 cursor-pointer"
                             >
                               <ExternalLink className="w-3 h-3" />
                               <span>CLICK TO ENLARGE</span>
@@ -299,6 +325,25 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
                           <ImageIcon className="w-8 h-8 text-emerald-400 mb-1" />
                           <span className="text-xs font-mono text-slate-200 font-bold uppercase">
                             {doc.title} // OPTICAL FORENSIC CAPTURE
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Video preview */}
+                  {doc.file_type === 'video' && (
+                    <div className="bg-[#111111] text-white border-2 border-black p-3 flex flex-col items-center justify-center">
+                      {doc.media_url ? (
+                        <video
+                          controls
+                          className="max-h-72 w-full object-contain border border-neutral-700 bg-black"
+                          src={doc.media_url}
+                        />
+                      ) : (
+                        <div className="border border-dashed border-amber-500 w-full p-4 flex flex-col items-center justify-center bg-amber-950/20">
+                          <span className="text-xs font-mono text-slate-200 font-bold uppercase">
+                            {doc.title} // VIDEO RECORDING
                           </span>
                         </div>
                       )}

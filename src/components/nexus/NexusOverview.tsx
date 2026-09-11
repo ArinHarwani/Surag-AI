@@ -35,8 +35,16 @@ interface NexusOverviewProps {
   acceptedLinkedAgencies: AgencySlug[];
   activeCaseName: string | null;
   activeCaseFilingAgency: AgencySlug | null;
+  hasPendingRequest?: boolean;
+  pendingRequestDetails?: {
+    targetAgencyName: string;
+    caseName: string;
+    createdAt?: string;
+    briefSnapshot?: string;
+  } | null;
   onOpenUpload: () => void;
   onOpenConnect: () => void;
+  onOpenRequestsPanel?: () => void;
   onSelectTab: (tab: any) => void;
   onConfirmRelationship: (relId: string) => void;
   onDismissRelationship: (relId: string) => void;
@@ -53,8 +61,11 @@ export const NexusOverview: React.FC<NexusOverviewProps> = ({
   acceptedLinkedAgencies,
   activeCaseName,
   activeCaseFilingAgency,
+  hasPendingRequest,
+  pendingRequestDetails,
   onOpenUpload,
   onOpenConnect,
+  onOpenRequestsPanel,
   onSelectTab,
   onConfirmRelationship,
   onDismissRelationship,
@@ -107,6 +118,77 @@ export const NexusOverview: React.FC<NexusOverviewProps> = ({
       docId: 'doc-cctv-optical-04'
     }
   ];
+
+  // ── PENDING AUTHORIZATION STATE (Transmission awaiting lead agency acceptance) ──
+  if (documents.length === 0 && hasPendingRequest) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full min-h-[75vh] p-6 lg:p-10 font-mono text-black">
+        <div className="w-full max-w-2xl bg-white border-2 border-black p-6 md:p-8 shadow-brutal-lg space-y-6">
+          {/* Header Strip */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-black pb-4">
+            <div className="flex items-center gap-2.5">
+              <span className="w-3 h-3 bg-amber-500 rounded-full animate-ping shrink-0" />
+              <span className="bg-amber-100 text-amber-900 border border-amber-500 font-black text-xs px-2.5 py-0.5 uppercase tracking-wider">
+                TRANSMISSION PENDING {pendingRequestDetails?.targetAgencyName ? pendingRequestDetails.targetAgencyName.toUpperCase() : 'LEAD HQ'} ACCEPTANCE
+              </span>
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 bg-[#FBF9F5] px-2 py-1 border border-black">
+              PROTOCOL // PS-16 DUAL CONSENSUS
+            </span>
+          </div>
+
+          {/* Core Banner */}
+          <div className="space-y-3">
+            <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight text-black flex items-center gap-2">
+              <Clock className="w-6 h-6 text-amber-600 shrink-0" />
+              {pendingRequestDetails?.caseName || activeCaseName || 'FIR-007: AARAV KIDNAPPING'}
+            </h2>
+            <p className="text-xs text-slate-700 font-sans leading-relaxed">
+              Evidence and cross-jurisdictional leads from <strong>{AGENCY_LABELS[scopedAgency] || scopedAgency.toUpperCase()}</strong> have been securely submitted and transmitted to <strong>{pendingRequestDetails?.targetAgencyName || 'Jodhpur Police Department (Lead Investigating Agency)'}</strong>.
+            </p>
+          </div>
+
+          {/* Security & Access Box */}
+          <div className="bg-[#FBF9F5] border-2 border-black p-4 space-y-3">
+            <div className="text-[11px] font-black uppercase text-black flex items-center justify-between">
+              <span>CASE OVERVIEW ACCESS PROTOCOL</span>
+              <span className="text-amber-800 bg-amber-100 px-2 py-0.5 border border-amber-400 font-bold text-[10px]">
+                AWAITING JODHPUR HQ ACCEPTANCE
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 font-sans leading-relaxed">
+              Under inter-agency criminal intelligence protocols, the full case overview, extracted multi-modal entities, timeline fusion, and contradiction detection remain locked until the Lead Investigating Agency reviews and authorizes this transmission. Once accepted by Jodhpur HQ, full case intelligence will unlock automatically in real-time.
+            </p>
+            {pendingRequestDetails?.briefSnapshot && (
+              <div className="mt-2 p-3 bg-white border border-slate-300 text-[11px] font-sans text-slate-700 whitespace-pre-wrap max-h-32 overflow-y-auto">
+                <span className="font-mono font-bold text-slate-500 block mb-1 text-[10px]">TRANSMITTED EVIDENCE SUMMARY:</span>
+                {pendingRequestDetails.briefSnapshot}
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            {onOpenRequestsPanel && (
+              <button
+                onClick={onOpenRequestsPanel}
+                className="flex-1 py-3 px-4 bg-[#F5C842] hover:bg-[#EAB308] text-black font-black text-xs uppercase tracking-wider border-2 border-black shadow-brutal flex items-center justify-center gap-2 transition active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+              >
+                <Link2 className="w-4 h-4" />
+                CHECK STATUS / VIEW REQUESTS
+              </button>
+            )}
+            <button
+              onClick={onOpenUpload}
+              className="py-3 px-5 bg-black hover:bg-neutral-800 text-white font-black text-xs uppercase tracking-wider border-2 border-black shadow-brutal flex items-center justify-center gap-2 transition active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+            >
+              + TRANSMIT FURTHER EVIDENCE
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ── EMPTY STATE ─────────────────────────────────────────────────────────────
   if (documents.length === 0) {
