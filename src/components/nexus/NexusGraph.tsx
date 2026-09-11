@@ -160,28 +160,29 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
       ctx.fillStyle = '#090A0D';
       ctx.fill();
 
-      // Node label badge
+      // Node label badge (truncated cleanly if long)
       if (globalScale > 0.6) {
-        ctx.font = `600 ${fontSize}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
+        const displayLabel = label.length > 24 ? label.slice(0, 22) + '…' : label;
+        ctx.font = `700 ${fontSize}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        const textWidth = ctx.measureText(label).width;
-        ctx.fillStyle = 'rgba(9, 10, 13, 0.92)';
+        const textWidth = ctx.measureText(displayLabel).width;
+        ctx.fillStyle = 'rgba(9, 10, 13, 0.95)';
         ctx.strokeStyle = agencyColor;
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1.5;
 
         // Label rect
-        const rx = node.x - textWidth / 2 - 5;
+        const rx = node.x - textWidth / 2 - 6;
         const ry = node.y + radius + 4;
-        const rw = textWidth + 10;
+        const rw = textWidth + 12;
         const rh = fontSize + 6;
 
         ctx.fillRect(rx, ry, rw, rh);
         ctx.strokeRect(rx, ry, rw, rh);
 
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillText(label, node.x, node.y + radius + fontSize / 2 + 7);
+        ctx.fillText(displayLabel, node.x, node.y + radius + fontSize / 2 + 7);
       }
     },
     [activeNodeForDrawer, agencies]
@@ -457,9 +458,9 @@ export const NexusGraph: React.FC<NexusGraphProps> = ({ onOpenProvenance }) => {
             {/* Footer with Confidence & HITL Action Buttons */}
             <div className="flex items-center justify-between pt-3 border-t border-[#232731]">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-[#8E929B]">CONFIDENCE:</span>
-                <span className="text-xs font-extrabold text-[#10B981]">
-                  {Math.round((activeRelForModal.confidence || 0.85) * 100)}% GXD-CERTIFIED
+                <span className="text-xs text-slate-300 font-bold">CONFIDENCE:</span>
+                <span className="text-xs font-black text-[#10B981]">
+                  {Math.round((activeRelForModal.confidence || 0.85) * 100)}% AI CONFIDENCE
                 </span>
               </div>
 

@@ -132,13 +132,13 @@ export const INITIAL_ENTITIES: Entity[] = [
     id: 'ent-bolero-silver',
     case_id: CASE_ID,
     agency_id: 'agency-kota-01',
-    name: 'Silver Bolero (RJ-20-CA-8812)',
+    name: 'Silver Mahindra Bolero Neo (RJ-20-CA-8812) with Chambal Markings',
     type: 'vehicle',
     attributes: {
-      model: 'Mahindra Bolero Neo',
+      model: 'Mahindra Bolero Neo N10',
       color: 'Metallic Silver',
       plate: 'RJ-20-CA-8812',
-      registered_to: 'Chambal Logistics Network'
+      registered_to: 'Chambal Logistics Network & Cross-Border Transport Wing'
     },
     first_seen_at: '2026-09-10T22:45:00Z'
   },
@@ -159,7 +159,7 @@ export const INITIAL_ENTITIES: Entity[] = [
     id: 'ent-chambal-syndicate',
     case_id: CASE_ID,
     agency_id: 'agency-kota-01',
-    name: 'Chambal Logistics Network',
+    name: 'Chambal Logistics Network & Cross-District Contraband Syndicate (Inter-State Module)',
     type: 'organization',
     attributes: {
       jurisdiction: 'Kota / Hadoti Border',
@@ -179,6 +179,15 @@ export const INITIAL_ENTITIES: Entity[] = [
       status: 'Optical Detection 94.2%'
     },
     first_seen_at: '2026-09-11T02:30:00Z'
+  },
+  {
+    id: 'ent-burner-sim',
+    case_id: CASE_ID,
+    agency_id: 'agency-kota-01',
+    name: 'Burner SIM (IMEI-98421094)',
+    type: 'object',
+    attributes: {},
+    first_seen_at: '2026-09-11T01:15:00Z'
   }
 ];
 
@@ -252,6 +261,20 @@ export const INITIAL_EVENTS: Event[] = [
     source_offset: 'bbox [120,450,280,620]',
     confidence: 0.94,
     created_at: '2026-09-11T02:35:00Z'
+  },
+  {
+    id: 'evt-unverified-relay',
+    case_id: CASE_ID,
+    document_id: 'doc-wiretap-audio-03',
+    description: 'Unverified relay burst ping from cell repeater near MP border checkpoint (triangulation pending)',
+    event_timestamp: '2026-09-11T01:15:00Z',
+    event_timestamp_confidence: 'approximate',
+    location_text: 'Border Checkpoint Sector 4 (Unmapped Coordinates)',
+    lat: undefined,
+    lng: undefined,
+    source_offset: '00:03:02',
+    confidence: 0.48,
+    created_at: '2026-09-11T01:25:00Z'
   }
 ];
 
@@ -307,6 +330,19 @@ export const INITIAL_RELATIONSHIPS: Relationship[] = [
     source_document_ids: ['doc-cctv-optical-04'],
     explanation: 'NightVision CCTV frame detected Glock 19 sidearm inside Bolero cabin bbox [120,450,280,620].',
     created_at: '2026-09-11T02:35:00Z'
+  },
+  {
+    id: 'rel-devendra-sim',
+    case_id: CASE_ID,
+    source_entity_id: 'ent-devendra-sharma',
+    target_entity_id: 'ent-burner-sim',
+    relationship_type: 'linked_to',
+    description: 'Tentative burner SIM association via radio cell tower triangulation (unconfirmed match)',
+    confidence: 0.52,
+    status: 'ai_suggested',
+    source_document_ids: ['doc-wiretap-audio-03'],
+    explanation: 'Wiretap burst ping signal correlation suggests burner handset in transit convoy.',
+    created_at: '2026-09-11T01:25:00Z'
   }
 ];
 

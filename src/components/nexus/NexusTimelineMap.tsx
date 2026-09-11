@@ -12,7 +12,12 @@ import {
   Navigation,
   Sparkles,
   ArrowRight,
-  ShieldAlert
+  ShieldAlert,
+  ChevronDown,
+  ChevronUp,
+  Table,
+  Eye,
+  Activity
 } from 'lucide-react';
 import { Event } from '@/types/investigation';
 import 'leaflet/dist/leaflet.css';
@@ -22,30 +27,30 @@ interface NexusTimelineMapProps {
   onOpenProvenance: (docId: string, offset: string, snippet?: string) => void;
 }
 
-// Inner Leaflet Map
+// Inner Leaflet Map with Dark CartoDB Matter styling
 const InnerMap = dynamic(
   async () => {
     const { MapContainer, TileLayer, Marker, Popup, Polyline } = await import('react-leaflet');
     const L = await import('leaflet');
 
-    const createPin = (color: string) => {
+    const createPin = (color: string, label?: string) => {
       const html = `
         <div style="
           background-color: ${color};
-          width: 26px;
-          height: 26px;
+          width: 30px;
+          height: 30px;
           border-radius: 50% 50% 50% 0;
           transform: rotate(-45deg);
-          border: 2px solid #ffffff;
-          box-shadow: 0 4px 10px rgba(0,0,0,0.8);
+          border: 2px solid #FFFFFF;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.9);
           display: flex;
           align-items: center;
           justify-content: center;
         ">
           <div style="
-            width: 8px;
-            height: 8px;
-            background-color: #ffffff;
+            width: 10px;
+            height: 10px;
+            background-color: #000000;
             border-radius: 50%;
             transform: rotate(45deg);
           "></div>
@@ -54,9 +59,9 @@ const InnerMap = dynamic(
       return L.divIcon({
         className: 'nexus-pin',
         html,
-        iconSize: [26, 26],
-        iconAnchor: [13, 26],
-        popupAnchor: [0, -26]
+        iconSize: [30, 30],
+        iconAnchor: [15, 30],
+        popupAnchor: [0, -30]
       });
     };
 
@@ -67,7 +72,7 @@ const InnerMap = dynamic(
       events: Event[];
       onOpenProvenance: (docId: string, offset: string, snippet?: string) => void;
     }) {
-      const validEvents = events.filter((e) => e.lat && e.lng);
+      const validEvents = events.filter((e) => typeof e.lat === 'number' && typeof e.lng === 'number');
       const center: [number, number] = [25.74, 74.43];
 
       const routeCorridor: [number, number][] = [
@@ -83,9 +88,8 @@ const InnerMap = dynamic(
           center={center}
           zoom={7}
           scrollWheelZoom={true}
-          style={{ width: '100%', height: '100%' }}
+          style={{ width: '100%', height: '100%', minHeight: '100%' }}
         >
-          {/* CartoDB Dark Matter style tiles */}
           <TileLayer
             attribution='&copy; <a href="https://carto.com/">CARTO</a>'
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -96,34 +100,41 @@ const InnerMap = dynamic(
             positions={routeCorridor}
             pathOptions={{
               color: '#F4C430',
-              weight: 3,
-              dashArray: '6, 6',
-              opacity: 0.9
+              weight: 4,
+              dashArray: '8, 8',
+              opacity: 0.95
             }}
           />
 
           {validEvents.map((evt) => {
             const isContradiction = evt.id === 'evt-kota-chambal' || evt.id === 'evt-jod-clocktower';
-            const color = isContradiction ? '#EF4444' : evt.lat && evt.lat > 25.5 ? '#0284C7' : '#D97706';
+            const color = isContradiction ? '#EF4444' : (evt.lat && evt.lat > 25.5 ? '#06B6D4' : '#F59E0B');
             const pin = createPin(color);
 
             return (
               <Marker key={evt.id} position={[evt.lat!, evt.lng!]} icon={pin}>
                 <Popup>
-                  <div className="p-1 space-y-1.5 font-mono text-xs text-white">
+                  <div className="p-2 space-y-2 font-mono text-xs text-white max-w-xs">
                     <div className="flex items-center justify-between border-b border-slate-700 pb-1">
-                      <span className="font-bold text-[#F4C430] uppercase">{evt.location_text}</span>
-                      <span className="text-[10px] text-slate-400">
+                      <span className="font-extrabold text-[#F4C430] uppercase text-xs">
+                        {evt.location_text || 'KNOWN COORDINATES'}
+                      </span>
+                      <span className="text-xs text-slate-200 font-bold">
                         {new Date(evt.event_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-300 font-sans">{evt.description}</p>
-                    <button
-                      onClick={() => onOpenProvenance(evt.document_id, evt.source_offset, evt.description)}
-                      className="text-[10px] text-[#F4C430] hover:underline font-bold pt-1 block"
-                    >
-                      INSPECT OFFSET {evt.source_offset} →
-                    </button>
+                    <p className="text-xs text-slate-100 font-sans leading-relaxed">
+                      {evt.description}
+                    </p>
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-800 text-[11px]">
+                      <span className="text-slate-300">CONFIDENCE: {Math.round((evt.confidence || 0.8) * 100)}%</span>
+                      <button
+                        onClick={() => onOpenProvenance(evt.document_id, evt.source_offset || 'Line 1-10', evt.description)}
+                        className="text-[#F4C430] hover:underline font-bold"
+                      >
+                        INSPECT PROVENANCE →
+                      </button>
+                    </div>
                   </div>
                 </Popup>
               </Marker>
@@ -136,9 +147,9 @@ const InnerMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-[#090A0D] text-slate-400 font-mono text-xs">
-        <div className="w-8 h-8 border-2 border-[#F4C430] border-t-transparent rounded-full animate-spin mb-2" />
-        <span>LOADING TACTICAL GEOSPATIAL MAP...</span>
+      <div className="w-full h-full min-h-[480px] flex flex-col items-center justify-center bg-[#090A0D] text-slate-200 font-mono text-sm">
+        <div className="w-8 h-8 border-2 border-[#F4C430] border-t-transparent rounded-full animate-spin mb-3" />
+        <span className="font-bold tracking-wider">INITIALIZING SATELLITE GEOSPATIAL MAP...</span>
       </div>
     )
   }
@@ -149,6 +160,7 @@ export const NexusTimelineMap: React.FC<NexusTimelineMapProps> = ({
   onOpenProvenance
 }) => {
   const [selectedFrame, setSelectedFrame] = useState<number>(0);
+  const [isMatrixExpanded, setIsMatrixExpanded] = useState<boolean>(false);
 
   // Sorted events chronologically
   const sortedEvents = [...events].sort(
@@ -162,8 +174,7 @@ export const NexusTimelineMap: React.FC<NexusTimelineMapProps> = ({
       time: '21:15 IST',
       location: 'Bilara Toll Plaza',
       title: 'FASTag RFID Capture',
-      thumb: 'FASTAG #4022',
-      tag: 'FASTAG PASS',
+      tag: 'FASTAG RFID PASS',
       docId: 'doc-jod-witness-01',
       offset: 'Line 1-4'
     },
@@ -171,9 +182,9 @@ export const NexusTimelineMap: React.FC<NexusTimelineMapProps> = ({
       idx: 1,
       time: '22:30 IST',
       location: 'Mehrangarh Clock Tower',
-      title: 'Duffel Handover Rendezvous',
-      thumb: 'TACTICAL MEMO',
-      tag: 'WITNESS SIGHTING',
+      title: 'Witness Encounter',
+      tag: 'SIGHTING A (JODHPUR)',
+      isConflict: true,
       docId: 'doc-jod-witness-01',
       offset: 'Line 5-8'
     },
@@ -181,9 +192,8 @@ export const NexusTimelineMap: React.FC<NexusTimelineMapProps> = ({
       idx: 2,
       time: '22:45 IST',
       location: 'Chambal River Bridge',
-      title: 'ANPR Camera #09 Toll Entry',
-      thumb: 'ANPR MATCH 91%',
-      tag: 'OPTICAL COLLISION',
+      title: 'ANPR CCTV Surveillance',
+      tag: 'SIGHTING B (KOTA)',
       isConflict: true,
       docId: 'doc-kota-cctv-02',
       offset: 'Line 5-8'
@@ -192,9 +202,8 @@ export const NexusTimelineMap: React.FC<NexusTimelineMapProps> = ({
       idx: 3,
       time: '01:15 IST',
       location: 'Rawatbhata Safehouse',
-      title: 'Radio Wiretap Intercept #9A',
-      thumb: 'AUDIO DIARIZED',
-      tag: 'TACTICAL AUDIO',
+      title: 'Radio Wiretap Intercept',
+      tag: 'AUDIO INTERCEPT',
       docId: 'doc-wiretap-audio-03',
       offset: '00:02:14'
     },
@@ -203,57 +212,98 @@ export const NexusTimelineMap: React.FC<NexusTimelineMapProps> = ({
       time: '02:30 IST',
       location: 'Nayapura Barrier',
       title: 'NightVision Optical Frame 04',
-      thumb: 'GLOCK 19 BBOX',
       tag: 'WEAPON DETECTED',
       docId: 'doc-cctv-optical-04',
       offset: 'bbox [120,450,280,620]'
     }
   ];
 
+  // Correlation & Velocity Matrix data
+  const velocityMatrix = [
+    {
+      from: 'Mehrangarh Clock Tower, Jodhpur',
+      to: 'Chambal River Bridge, Kota',
+      distance: '390 km',
+      deltaT: '15 min (0.25h)',
+      calculatedSpeed: '1,560 km/h',
+      status: 'FLAGGED CRITICAL',
+      isAnomaly: true,
+      cause: 'Physically impossible velocity across NH-27 without supersonic aircraft. Confirms presence of body-double decoy or false telemetry.',
+      docA: 'doc-jod-witness-01',
+      docB: 'doc-kota-cctv-02'
+    },
+    {
+      from: 'Bilara Toll Plaza, NH-25',
+      to: 'Mehrangarh Clock Tower',
+      distance: '75 km',
+      deltaT: '1h 15m',
+      calculatedSpeed: '60 km/h',
+      status: 'VERIFIED TRANSIT',
+      isAnomaly: false,
+      cause: 'Normal highway cruising speed within standard speed limits.',
+      docA: 'doc-jod-witness-01',
+      docB: 'doc-jod-witness-01'
+    },
+    {
+      from: 'Chambal River Bridge, Kota',
+      to: 'Rawatbhata Highway Safehouse',
+      distance: '48 km',
+      deltaT: '2h 30m',
+      calculatedSpeed: '19.2 km/h',
+      status: 'VERIFIED TRANSIT',
+      isAnomaly: false,
+      cause: 'Low transit speed consistent with evasive detour and unpaved secondary trails.',
+      docA: 'doc-kota-cctv-02',
+      docB: 'doc-wiretap-audio-03'
+    }
+  ];
+
   return (
-    <div className="space-y-5 font-mono select-none">
-      {/* Top Map + Right Rail Audit Feed */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Full-Width / Large Tactical Dark Satellite Map (8 cols) */}
-        <div className="lg:col-span-8 flex flex-col space-y-2">
-          <div className="flex items-center justify-between bg-[#111318] px-3 py-2 rounded-t-lg border border-[#232731]">
-            <div className="flex items-center space-x-2">
+    <div className="p-4 space-y-4 font-mono select-none">
+      {/* 1. DOMINANT PRIMARY MAP VIEWPORT (60%+ Dominant Anchor) with Slim Right Rail */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+        {/* DOMINANT MAP (9 cols) - Main Visual Focal Anchor */}
+        <div className="lg:col-span-9 flex flex-col space-y-2">
+          {/* Map Header Bar with High Contrast Badges */}
+          <div className="flex flex-wrap items-center justify-between bg-[#12141A] px-4 py-2.5 rounded-t-lg border border-[#232731]">
+            <div className="flex items-center space-x-2.5">
               <Navigation className="w-4 h-4 text-[#F4C430]" />
               <span className="text-xs font-black uppercase tracking-wider text-white">
-                TACTICAL SATELLITE CORRIDOR // NH-25 &amp; NH-27
+                PRIMARY GEOSPATIAL CORRIDOR // NH-25 &amp; NH-27 RAJASTHAN
               </span>
             </div>
-            <div className="flex items-center space-x-3 text-[10px]">
-              <span className="flex items-center space-x-1 text-[#38BDF8]">
-                <span className="w-2 h-2 rounded-full bg-[#0284C7]" />
-                <span>JODHPUR</span>
+            <div className="flex items-center space-x-4 text-xs">
+              <span className="flex items-center space-x-1.5 text-[#06B6D4] font-bold">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#06B6D4]" />
+                <span>JODHPUR SECTOR</span>
               </span>
-              <span className="flex items-center space-x-1 text-[#FBBF24]">
-                <span className="w-2 h-2 rounded-full bg-[#D97706]" />
-                <span>KOTA</span>
+              <span className="flex items-center space-x-1.5 text-[#F59E0B] font-bold">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]" />
+                <span>KOTA SECTOR</span>
               </span>
-              <span className="flex items-center space-x-1 text-red-400">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-                <span>COLLISION POINT</span>
+              <span className="flex items-center space-x-1.5 text-[#EF4444] font-bold bg-[#EF4444]/15 px-2 py-0.5 rounded border border-[#EF4444]/30">
+                <span className="w-2 h-2 rounded-full bg-[#EF4444] animate-ping" />
+                <span>IMPOSSIBLE VELOCITY POINT</span>
               </span>
             </div>
           </div>
 
-          <div className="w-full h-80 bg-[#090A0D] border-x border-b border-[#232731] rounded-b-lg overflow-hidden relative shadow-lg">
+          {/* Map Canvas: Dominant 60%+ Height (~540px) */}
+          <div className="w-full h-[540px] bg-[#090A0D] border-x border-b border-[#232731] rounded-b-lg overflow-hidden relative shadow-2xl">
             <InnerMap events={events} onOpenProvenance={onOpenProvenance} />
           </div>
 
-          {/* Filmstrip Row of Thumbnail Frames directly beneath the map (Brief Item 5) */}
-          <div className="bg-[#111318] border border-[#232731] rounded-lg p-2.5">
-            <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2 px-1">
-              <span className="flex items-center space-x-1.5">
-                <Film className="w-3.5 h-3.5 text-[#F4C430]" />
-                <span>TIMELINE FILMSTRIP ROW (SYNCED TO SPATIAL WAYPOINTS)</span>
-              </span>
-              <span>5 FRAMES LOGGED</span>
+          {/* Filmstrip Thumbnail Row Synced Directly Beneath the Map */}
+          <div className="bg-[#12141A] border border-[#232731] rounded-lg p-3 shadow-lg">
+            <div className="flex items-center justify-between text-xs text-slate-200 font-bold uppercase tracking-wider mb-2.5 px-1">
+              <div className="flex items-center space-x-2">
+                <Film className="w-4 h-4 text-[#F4C430]" />
+                <span className="text-white font-extrabold">CORRIDOR TIMELINE FILMSTRIP (5 SYNCHRONIZED FRAMES)</span>
+              </div>
+              <span className="text-[#F4C430] text-xs font-black">CLICK FRAME TO INSPECT EVIDENCE</span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
               {filmstripFrames.map((frame) => {
                 const isSelected = selectedFrame === frame.idx;
 
@@ -264,27 +314,31 @@ export const NexusTimelineMap: React.FC<NexusTimelineMapProps> = ({
                       setSelectedFrame(frame.idx);
                       onOpenProvenance(frame.docId, frame.offset, frame.title);
                     }}
-                    className={`p-2 rounded border cursor-pointer transition-all flex flex-col justify-between ${
+                    className={`p-2.5 rounded-lg border cursor-pointer transition-all flex flex-col justify-between ${
                       frame.isConflict
-                        ? 'bg-red-950/40 border-red-500 text-red-200'
+                        ? 'bg-[#EF4444]/15 border-[#EF4444] text-white hover:bg-[#EF4444]/25 shadow-md shadow-[#EF4444]/20'
                         : isSelected
-                        ? 'bg-[#EDE9E0] text-slate-950 border-[#F4C430] shadow'
-                        : 'bg-[#090A0D] text-slate-300 border-[#232731] hover:border-slate-500'
+                        ? 'bg-[#EDE9E0] text-black border-[#F4C430] shadow-md'
+                        : 'bg-[#090A0D] text-slate-200 border-[#232731] hover:border-[#F4C430]/70'
                     }`}
                   >
                     <div>
-                      <div className="flex items-center justify-between text-[9px] font-bold">
-                        <span className="text-[#F4C430]">{frame.time}</span>
-                        <span className="text-[8px] uppercase px-1 rounded bg-black/40 text-slate-300">
+                      <div className="flex items-center justify-between text-xs font-black">
+                        <span className={frame.isConflict ? 'text-[#EF4444]' : isSelected ? 'text-black' : 'text-[#F4C430]'}>
+                          {frame.time}
+                        </span>
+                        <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${
+                          frame.isConflict ? 'bg-[#EF4444] text-white' : 'bg-black/50 text-slate-200'
+                        }`}>
                           {frame.tag}
                         </span>
                       </div>
-                      <p className="text-[10px] font-bold truncate mt-1">{frame.title}</p>
+                      <p className="text-xs font-extrabold truncate mt-1.5">{frame.title}</p>
                     </div>
 
-                    <div className="mt-2 pt-1 border-t border-slate-700/40 flex items-center justify-between text-[9px]">
-                      <span className="truncate">{frame.location}</span>
-                      <span className="text-[8px] font-black opacity-80">INSPECT →</span>
+                    <div className="mt-2.5 pt-1.5 border-t border-slate-700/40 flex items-center justify-between text-[11px]">
+                      <span className="truncate opacity-90">{frame.location}</span>
+                      <span className="font-black text-[#F4C430] shrink-0 ml-1">INSPECT →</span>
                     </div>
                   </div>
                 );
@@ -293,163 +347,165 @@ export const NexusTimelineMap: React.FC<NexusTimelineMapProps> = ({
           </div>
         </div>
 
-        {/* Right Rail: Live Audit Feed (4 cols) */}
-        <div className="lg:col-span-4 bg-[#111318] border border-[#232731] rounded-lg p-4 flex flex-col justify-between space-y-3">
-          <div className="flex items-center justify-between border-b border-[#1E232E] pb-2">
-            <span className="text-xs font-black uppercase tracking-wider text-white">
-              LIVE AUDIT EVENT FEED
-            </span>
-            <span className="text-[9px] bg-red-950 text-red-300 px-1.5 py-0.2 rounded border border-red-800 font-bold">
-              1 FLAGGED
+        {/* SLIM RIGHT RAIL: Live Audit Event Feed (3 cols) */}
+        <div className="lg:col-span-3 bg-[#12141A] border border-[#232731] rounded-lg p-3.5 flex flex-col h-[650px] shadow-xl">
+          <div className="flex items-center justify-between border-b border-[#232731] pb-2.5">
+            <div className="flex items-center space-x-2">
+              <Clock className="w-4 h-4 text-[#F4C430]" />
+              <span className="text-xs font-black uppercase tracking-wider text-white">
+                LIVE AUDIT STREAM
+              </span>
+            </div>
+            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 font-bold border border-emerald-800">
+              {events.length} LOGS
             </span>
           </div>
 
-          <div className="space-y-2.5 flex-1 overflow-y-auto max-h-[460px] pr-1">
+          {/* Compact Stream */}
+          <div className="flex-1 overflow-y-auto space-y-2 mt-3 pr-1">
             {sortedEvents.map((evt) => {
-              const isCollision = evt.id === 'evt-kota-chambal' || evt.id === 'evt-jod-clocktower';
+              const isConflict = evt.id === 'evt-kota-chambal' || evt.id === 'evt-jod-clocktower';
 
               return (
                 <div
                   key={evt.id}
-                  onClick={() => onOpenProvenance(evt.document_id, evt.source_offset, evt.description)}
-                  className={`p-3 rounded border transition cursor-pointer ${
-                    isCollision
-                      ? 'bg-red-950/40 border-red-500/80 text-white shadow-md'
-                      : 'bg-[#090A0D] border-[#232731] text-slate-300 hover:border-slate-500'
+                  onClick={() => onOpenProvenance(evt.document_id, evt.source_offset || 'Line 1-10', evt.description)}
+                  className={`p-2.5 rounded-lg border cursor-pointer transition text-xs space-y-1 ${
+                    isConflict
+                      ? 'bg-[#EF4444]/15 border-[#EF4444]/60 hover:border-[#EF4444]'
+                      : 'bg-[#090A0D] border-[#232731] hover:border-[#F4C430]/60'
                   }`}
                 >
-                  <div className="flex items-center justify-between text-[10px] mb-1">
-                    <span className="text-[#F4C430] font-bold">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-extrabold text-[#F4C430]">
                       {new Date(evt.event_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST
                     </span>
-                    <span
-                      className={`text-[8px] font-bold uppercase px-1.5 py-0.2 rounded ${
-                        isCollision ? 'bg-red-600 text-white' : 'bg-[#1C202A] text-slate-400'
-                      }`}
-                    >
-                      {isCollision ? 'COLLISION' : evt.event_timestamp_confidence.toUpperCase()}
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                      isConflict ? 'bg-[#EF4444] text-white' : 'bg-[#181B22] text-slate-300'
+                    }`}>
+                      {isConflict ? 'CONFLICT' : 'LOGGED'}
                     </span>
                   </div>
 
-                  <p className="text-xs font-bold leading-snug">{evt.description}</p>
+                  <p className="text-xs font-medium text-slate-100 line-clamp-2 leading-tight">
+                    {evt.description}
+                  </p>
 
-                  <div className="mt-2 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400">
-                    <span className="truncate">{evt.location_text}</span>
-                    <span className="text-[#F4C430] font-bold">OFFSET: {evt.source_offset}</span>
+                  <div className="flex items-center justify-between text-[10px] text-slate-300 pt-1 border-t border-[#1F232D]">
+                    <span className="truncate">{evt.location_text || 'Coordinated'}</span>
+                    <span className="text-[#F4C430] font-bold">PROVENANCE →</span>
                   </div>
                 </div>
               );
             })}
           </div>
 
-          <div className="pt-2 border-t border-[#1E232E] text-[10px] text-slate-500 flex items-center justify-between">
-            <span>REAL-TIME DISPATCH</span>
-            <span className="text-emerald-400 font-bold">SYNC: ACTIVE</span>
+          {/* Quick Summary at bottom of rail */}
+          <div className="pt-2.5 border-t border-[#232731] text-[11px] text-slate-300 flex items-center justify-between">
+            <span>SYNC PROTOCOL</span>
+            <span className="text-emerald-400 font-bold">REALTIME ACTIVE</span>
           </div>
         </div>
       </div>
 
-      {/* Bottom: Dense Data Table ("Velocity/Correlation Matrix") */}
-      <div className="bg-[#111318] border border-[#232731] rounded-lg p-4 space-y-3">
-        <div className="flex items-center justify-between border-b border-[#1E232E] pb-2">
-          <div className="flex items-center space-x-2">
-            <Clock className="w-4 h-4 text-[#F4C430]" />
-            <h3 className="text-xs font-black uppercase tracking-wider text-white">
-              VELOCITY &amp; CORRELATION MATRIX (DENSE FORENSIC TABLE)
-            </h3>
+      {/* 2. COLLAPSIBLE VELOCITY & CORRELATION MATRIX (Collapsed into Toggle Tab) */}
+      <div className="bg-[#12141A] border border-[#232731] rounded-lg overflow-hidden shadow-xl">
+        {/* Toggle Bar Header */}
+        <button
+          onClick={() => setIsMatrixExpanded(!isMatrixExpanded)}
+          className="w-full px-4 py-3 bg-[#161922] hover:bg-[#1E222D] flex items-center justify-between transition text-left"
+        >
+          <div className="flex items-center space-x-3">
+            <div className="p-1.5 bg-[#F4C430]/15 rounded text-[#F4C430]">
+              <Table className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-black uppercase tracking-wider text-white">
+                  TRANSIT VELOCITY &amp; CORRELATION MATRIX
+                </span>
+                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-[#EF4444] text-white uppercase animate-pulse">
+                  1 ANOMALY DETECTED (1,560 KM/H)
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 mt-0.5">
+                Calculates transit speed between chronological GPS waypoints to detect physical impossibility.
+              </p>
+            </div>
           </div>
-          <span className="text-[10px] text-slate-400">CALCULATED PHYSICAL KINEMATICS</span>
-        </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-[#232731] text-[10px] text-slate-400 uppercase tracking-wider">
-                <th className="py-2 px-3">EVENT ID</th>
-                <th className="py-2 px-3">REAL-WORLD TIME</th>
-                <th className="py-2 px-3">LOCATION</th>
-                <th className="py-2 px-3">CONFIDENCE</th>
-                <th className="py-2 px-3">TRANSIT DELTA</th>
-                <th className="py-2 px-3">REQUIRED SPEED</th>
-                <th className="py-2 px-3">STATUS</th>
-                <th className="py-2 px-3 text-right">ACTION</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#1C202A] text-slate-200">
-              <tr className="hover:bg-[#181A20] transition">
-                <td className="py-2.5 px-3 font-mono text-[#F4C430]">EVT-BILARA</td>
-                <td className="py-2.5 px-3 font-bold">10-SEP 21:15 IST</td>
-                <td className="py-2.5 px-3">Bilara Toll Plaza (NH-25)</td>
-                <td className="py-2.5 px-3 text-emerald-400 font-bold">96% (EXACT)</td>
-                <td className="py-2.5 px-3 font-mono">0 MIN</td>
-                <td className="py-2.5 px-3 font-mono">65 km/h (Normal)</td>
-                <td className="py-2.5 px-3"><span className="text-[9px] bg-emerald-950 text-emerald-300 px-1.5 py-0.5 rounded">VERIFIED</span></td>
-                <td className="py-2.5 px-3 text-right">
-                  <button
-                    onClick={() => onOpenProvenance('doc-jod-witness-01', 'Line 1-4', 'White Scorpio crosses Bilara Toll')}
-                    className="text-[11px] text-[#F4C430] hover:underline font-bold"
-                  >
-                    INSPECT PROOF
-                  </button>
-                </td>
-              </tr>
+          <div className="flex items-center space-x-2 text-xs font-bold text-[#F4C430]">
+            <span>{isMatrixExpanded ? 'COLLAPSE MATRIX' : 'EXPAND MATRIX'}</span>
+            {isMatrixExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </div>
+        </button>
 
-              <tr className="hover:bg-[#181A20] transition bg-red-950/20">
-                <td className="py-2.5 px-3 font-mono text-[#F4C430]">EVT-JOD-CLOCK</td>
-                <td className="py-2.5 px-3 font-bold">10-SEP 22:30 IST</td>
-                <td className="py-2.5 px-3">Mehrangarh Clock Tower</td>
-                <td className="py-2.5 px-3 text-emerald-400 font-bold">94% (EXACT)</td>
-                <td className="py-2.5 px-3 font-mono">+75 MIN</td>
-                <td className="py-2.5 px-3 font-mono">42 km/h (City)</td>
-                <td className="py-2.5 px-3"><span className="text-[9px] bg-red-950 text-red-300 px-1.5 py-0.5 rounded border border-red-800 animate-pulse">COLLISION A</span></td>
-                <td className="py-2.5 px-3 text-right">
-                  <button
-                    onClick={() => onOpenProvenance('doc-jod-witness-01', 'Line 5-8', 'Aarav Singh at Clock Tower')}
-                    className="text-[11px] text-[#F4C430] hover:underline font-bold"
-                  >
-                    INSPECT PROOF
-                  </button>
-                </td>
-              </tr>
-
-              <tr className="hover:bg-[#181A20] transition bg-red-950/20">
-                <td className="py-2.5 px-3 font-mono text-[#F4C430]">EVT-KOTA-TOLL</td>
-                <td className="py-2.5 px-3 font-bold text-red-400">10-SEP 22:45 IST</td>
-                <td className="py-2.5 px-3 font-bold text-red-300">Chambal River Bridge (Kota)</td>
-                <td className="py-2.5 px-3 text-emerald-400 font-bold">91% (ANPR)</td>
-                <td className="py-2.5 px-3 font-mono font-bold text-red-400">+15 MIN</td>
-                <td className="py-2.5 px-3 font-mono font-black text-red-400">1,560 km/h (IMPOSSIBLE)</td>
-                <td className="py-2.5 px-3"><span className="text-[9px] bg-red-600 text-white font-black px-1.5 py-0.5 rounded animate-pulse">COLLISION B</span></td>
-                <td className="py-2.5 px-3 text-right">
-                  <button
-                    onClick={() => onOpenProvenance('doc-kota-cctv-02', 'Line 5-8', 'Aarav Singh at Chambal Toll')}
-                    className="text-[11px] text-[#F4C430] hover:underline font-bold"
-                  >
-                    INSPECT PROOF
-                  </button>
-                </td>
-              </tr>
-
-              <tr className="hover:bg-[#181A20] transition">
-                <td className="py-2.5 px-3 font-mono text-[#F4C430]">EVT-RAWATBHATA</td>
-                <td className="py-2.5 px-3 font-bold">11-SEP 01:15 IST</td>
-                <td className="py-2.5 px-3">Rawatbhata Highway Safehouse</td>
-                <td className="py-2.5 px-3 text-amber-400 font-bold">92% (APPROX)</td>
-                <td className="py-2.5 px-3 font-mono">+150 MIN</td>
-                <td className="py-2.5 px-3 font-mono">48 km/h (Convoy)</td>
-                <td className="py-2.5 px-3"><span className="text-[9px] bg-emerald-950 text-emerald-300 px-1.5 py-0.5 rounded">VERIFIED</span></td>
-                <td className="py-2.5 px-3 text-right">
-                  <button
-                    onClick={() => onOpenProvenance('doc-wiretap-audio-03', '00:02:14', 'Convoy ordered to divert toward Rawatbhata')}
-                    className="text-[11px] text-[#F4C430] hover:underline font-bold"
-                  >
-                    INSPECT PROOF
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        {/* Collapsible Content */}
+        {isMatrixExpanded && (
+          <div className="p-4 border-t border-[#232731] animate-in fade-in duration-150">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-[#232731] text-[11px] text-slate-300 uppercase bg-[#090A0D]">
+                    <th className="py-2.5 px-3">Waypoint Origin</th>
+                    <th className="py-2.5 px-3">Destination</th>
+                    <th className="py-2.5 px-3">Distance</th>
+                    <th className="py-2.5 px-3">Time Delta</th>
+                    <th className="py-2.5 px-3">Calculated Speed</th>
+                    <th className="py-2.5 px-3">Physical Status</th>
+                    <th className="py-2.5 px-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#1F232D]">
+                  {velocityMatrix.map((row, i) => (
+                    <tr
+                      key={i}
+                      className={
+                        row.isAnomaly
+                          ? 'bg-[#EF4444]/10 hover:bg-[#EF4444]/20 text-white font-medium'
+                          : 'hover:bg-[#181B22] text-slate-200'
+                      }
+                    >
+                      <td className="py-3 px-3 font-bold">{row.from}</td>
+                      <td className="py-3 px-3 font-bold">{row.to}</td>
+                      <td className="py-3 px-3 font-mono">{row.distance}</td>
+                      <td className="py-3 px-3 font-mono">{row.deltaT}</td>
+                      <td className="py-3 px-3 font-mono font-black text-sm">
+                        <span className={row.isAnomaly ? 'text-[#EF4444]' : 'text-emerald-400'}>
+                          {row.calculatedSpeed}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                            row.isAnomaly
+                              ? 'bg-[#EF4444] text-white shadow-sm'
+                              : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                          }`}
+                        >
+                          {row.status}
+                        </span>
+                        {row.isAnomaly && (
+                          <div className="text-[11px] text-slate-200 mt-1 max-w-sm">
+                            {row.cause}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <button
+                          onClick={() => onOpenProvenance(row.docA, 'Source telemetry', row.cause)}
+                          className="px-2.5 py-1 rounded bg-[#181B22] hover:bg-[#232731] border border-[#232731] text-xs font-bold text-[#F4C430] hover:text-white transition"
+                        >
+                          INSPECT PROOF
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

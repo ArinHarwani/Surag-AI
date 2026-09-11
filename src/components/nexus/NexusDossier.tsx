@@ -67,12 +67,12 @@ export const NexusDossier: React.FC<NexusDossierProps> = ({
         <div>
           <div className="flex items-center space-x-2">
             <FileText className="w-5 h-5 text-[#F4C430]" />
-            <h2 className="text-sm font-black uppercase tracking-wider text-white">
-              CLASSIFIED INTELLIGENCE DOSSIER (GRAPHRAG BRIEF)
+            <h2 className="text-base font-black uppercase tracking-wider text-white">
+              INTELLIGENCE BRIEFING &amp; CITATION REGISTRY
             </h2>
           </div>
-          <p className="text-[11px] text-slate-400 mt-0.5">
-            Cryptographically grounded synthesis // Strict zero-hallucination compliance.
+          <p className="text-xs text-slate-200 mt-1">
+            Evidence-grounded synthesis with verified source document line offsets.
           </p>
         </div>
 

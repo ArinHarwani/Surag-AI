@@ -105,11 +105,11 @@ export const NexusProvenanceInspector: React.FC<ProvenanceInspectorProps> = ({
         <div className="p-3 rounded bg-emerald-950/30 border border-emerald-800/60 flex items-start space-x-2.5 text-xs text-emerald-200">
           <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
           <div className="space-y-0.5">
-            <p className="font-bold text-white uppercase tracking-wider text-[10px]">
-              VERIFIED CUSTODY ANCHOR
+            <p className="font-bold text-white uppercase tracking-wider text-xs">
+              VERIFIED SOURCE CITATION
             </p>
-            <p className="text-[11px] text-emerald-300/90 font-sans">
-              Cryptographically bound to source evidence hash. Strictly grounds timeline events and relationship confidence.
+            <p className="text-xs text-emerald-200 font-sans mt-0.5">
+              Directly grounds extracted timeline events, entities, and relationship confidence scores in raw telemetry.
             </p>
           </div>
         </div>

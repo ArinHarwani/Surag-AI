@@ -12,9 +12,11 @@ import {
   Sparkles, 
   CheckCircle2, 
   Clock, 
-  ExternalLink,
-  Target,
-  Share2
+  ExternalLink, 
+  Target, 
+  Share2,
+  Lock,
+  Layers
 } from 'lucide-react';
 import { Document, Entity, FileType } from '@/types/investigation';
 
@@ -37,50 +39,43 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
   const filteredDocs = documents.filter((doc) => {
     const matchesSearch = 
       doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (doc.content_text && doc.content_text.toLowerCase().includes(searchQuery.toLowerCase()));
+      (doc.content_text && doc.content_text.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      doc.uploaded_by.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesModality = selectedModality === 'all' || doc.file_type === selectedModality;
     return matchesSearch && matchesModality;
   });
 
   const getEntityPillsForDoc = (docId: string) => {
-    if (docId.includes('jod-witness')) {
-      return ['Aarav Singh', 'White Scorpio (RJ-19-UB-4022)', 'Encrypted Duffel'];
-    }
-    if (docId.includes('kota-cctv')) {
-      return ['Aarav Singh', 'Silver Bolero (RJ-20-CA-8812)', 'Chambal Logistics Network'];
-    }
-    if (docId.includes('wiretap')) {
-      return ['Devendra Sharma', 'Rawatbhata Safehouse', 'Silver Bolero'];
-    }
-    if (docId.includes('optical')) {
-      return ['Glock 19 (9mm)', 'Devendra Sharma', 'Nayapura Barrier'];
-    }
-    return ['Aarav Singh'];
+    const matched = entities.filter((e) => {
+      const doc = documents.find((d) => d.id === docId);
+      return doc?.content_text?.toLowerCase().includes(e.name.toLowerCase());
+    });
+    return matched.slice(0, 4).map((m) => m.name);
   };
 
   return (
-    <div className="space-y-5 font-mono select-none">
-      {/* Top Header + Action Buttons */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#111318] p-4 rounded-lg border border-[#232731]">
+    <div className="p-5 space-y-5 font-mono select-none">
+      {/* Top Header + Action Buttons with High Contrast */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-[#12141A] p-4 rounded-lg border border-[#232731] shadow-xl">
         <div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2.5">
             <FolderArchive className="w-5 h-5 text-[#F4C430]" />
-            <h2 className="text-sm font-black uppercase tracking-wider text-white">
-              CLASSIFIED EVIDENCE VAULT
+            <h2 className="text-base font-black uppercase tracking-wider text-white">
+              CROSS-AGENCY EVIDENCE VAULT
             </h2>
           </div>
-          <p className="text-[11px] text-slate-400 mt-0.5">
-            Cryptographically signed multi-modal evidence chain for Operation Marwar.
+          <p className="text-xs text-slate-200 mt-1">
+            Multi-modal evidence repository with verified cryptographic chain of custody.
           </p>
         </div>
 
-        {/* 3 Action Buttons per UI Brief */}
-        <div className="flex items-center space-x-2 text-xs">
+        {/* 3 Action Buttons */}
+        <div className="flex items-center space-x-2.5 text-xs">
           <button
             onClick={onOpenUpload}
-            className="px-3 py-1.5 bg-[#F4C430] hover:bg-[#EAB308] text-black font-black rounded flex items-center space-x-1.5 shadow-md shadow-[#F4C430]/20 transition"
+            className="px-4 py-2 bg-[#F4C430] hover:bg-[#EAB308] text-black font-black rounded flex items-center space-x-2 shadow-md shadow-[#F4C430]/20 transition active:scale-95"
           >
-            <Share2 className="w-3.5 h-3.5 stroke-[2.5]" />
+            <Share2 className="w-4 h-4 stroke-[2.5]" />
             <span>+ INGEST EVIDENCE</span>
           </button>
           <button
@@ -93,37 +88,37 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
               a.download = `EVIDENCE-VAULT-MANIFEST-${Date.now()}.json`;
               a.click();
             }}
-            className="px-3 py-1.5 bg-[#1C202A] hover:bg-[#252A38] text-slate-200 border border-[#2E3444] rounded flex items-center space-x-1.5 transition font-bold"
+            className="px-3.5 py-2 bg-[#181B22] hover:bg-[#232731] text-slate-200 border border-[#232731] rounded flex items-center space-x-2 transition font-bold"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-4 h-4" />
             <span>EXPORT DOSSIER</span>
           </button>
           <button
-            onClick={() => alert('Intelligence Sweep triggered: All raw fastag, optical and radio telemetry verified against SHA-256 ledger.')}
-            className="px-3 py-1.5 bg-[#1C202A] hover:bg-[#252A38] text-slate-200 border border-[#2E3444] rounded flex items-center space-x-1.5 transition font-bold"
+            onClick={() => alert('Extracting cross-document entities and matching against existing case entities.')}
+            className="px-3.5 py-2 bg-[#181B22] hover:bg-[#232731] text-slate-200 border border-[#232731] rounded flex items-center space-x-2 transition font-bold"
           >
-            <Sparkles className="w-3.5 h-3.5 text-[#F4C430]" />
-            <span>INTELLIGENCE SWEEP</span>
+            <Sparkles className="w-4 h-4 text-[#F4C430]" />
+            <span>EXTRACT ENTITIES</span>
           </button>
         </div>
       </div>
 
       {/* Search Bar + Filter Modality Pills */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#111318] p-3 rounded-lg border border-[#232731]">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#12141A] p-3.5 rounded-lg border border-[#232731] shadow-lg">
         {/* Search */}
-        <div className="relative w-72 sm:w-80">
-          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <div className="relative w-80 sm:w-96">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search dossier text or officer..."
+            placeholder="Search dossier text, officer, or plate..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-[#090A0D] border border-[#232731] rounded pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-[#F4C430]"
+            className="w-full bg-[#090A0D] border border-[#232731] rounded pl-9 pr-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-[#F4C430] transition font-mono"
           />
         </div>
 
         {/* Modality Filter Pills */}
-        <div className="flex items-center space-x-1.5 text-xs">
+        <div className="flex items-center space-x-2 text-xs">
           {[
             { id: 'all', label: 'ALL', count: documents.length },
             { id: 'text', label: 'TEXT', count: documents.filter((d) => d.file_type === 'text').length },
@@ -134,10 +129,10 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
             <button
               key={m.id}
               onClick={() => setSelectedModality(m.id)}
-              className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all border ${
+              className={`px-3 py-1.5 rounded text-xs font-black transition-all border ${
                 selectedModality === m.id
-                  ? 'bg-[#F4C430] text-black border-[#F4C430] shadow'
-                  : 'bg-[#090A0D] text-slate-400 border-[#232731] hover:text-white'
+                  ? 'bg-[#F4C430] text-black border-[#F4C430] shadow-md shadow-[#F4C430]/20'
+                  : 'bg-[#090A0D] text-slate-300 border-[#232731] hover:text-white hover:bg-[#181B22]'
               }`}
             >
               {m.label} ({m.count})
@@ -155,40 +150,40 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
           return (
             <div
               key={doc.id}
-              className="bg-[#EDE9E0] border border-slate-300 rounded-lg p-5 shadow-sm text-slate-950 flex flex-col lg:flex-row gap-5 transition hover:shadow-md"
+              className="bg-[#EDE9E0] border-2 border-[#D4CEBF] rounded-lg p-5 shadow-md text-black flex flex-col lg:flex-row gap-5 transition hover:shadow-xl"
             >
               {/* Left Column: Media Preview & Thumbnail */}
               <div className="lg:w-72 shrink-0 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span
-                    className={`text-[9px] font-black uppercase px-2 py-0.5 rounded text-white ${
+                    className={`text-xs font-black uppercase px-2.5 py-1 rounded text-white ${
                       isJod ? 'bg-[#0284C7]' : 'bg-[#D97706]'
                     }`}
                   >
-                    {isJod ? 'JODHPUR POLICE' : 'KOTA POLICE'}
+                    {isJod ? 'JODHPUR POLICE' : 'KOTA SIU'}
                   </span>
-                  <span className="text-[10px] font-mono text-slate-600 font-bold uppercase">
+                  <span className="text-xs font-mono text-black font-extrabold uppercase bg-black/10 px-2 py-0.5 rounded">
                     [{doc.file_type}]
                   </span>
                 </div>
 
                 {/* Media Preview Box */}
                 {doc.file_type === 'audio' && (
-                  <div className="p-3 bg-[#111318] text-white rounded border border-slate-800 space-y-2">
-                    <div className="flex items-center justify-between text-[10px]">
-                      <span className="text-[#F4C430] font-bold flex items-center space-x-1">
-                        <Music className="w-3 h-3" />
-                        <span>RADIO INTERCEPT</span>
+                  <div className="p-3 bg-[#090A0D] text-white rounded-lg border border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-[#F4C430] font-bold flex items-center space-x-1.5">
+                        <Music className="w-3.5 h-3.5" />
+                        <span>RADIO WIRETAP</span>
                       </span>
-                      <span className="font-mono text-slate-400">00:38</span>
+                      <span className="font-mono text-slate-300">00:38</span>
                     </div>
                     {/* Simulated Waveform */}
-                    <div className="h-8 bg-[#090A0D] rounded flex items-center justify-center space-x-0.5 px-2">
-                      {[30, 80, 50, 95, 100, 40, 75, 90, 45, 80, 50, 70, 90, 60, 40, 85, 50, 95, 60, 30].map(
+                    <div className="h-9 bg-black rounded flex items-center justify-center space-x-1 px-2">
+                      {[35, 85, 55, 95, 100, 45, 80, 95, 50, 85, 55, 75, 95, 65, 45, 90, 55, 100, 65, 35].map(
                         (h, i) => (
                           <span
                             key={i}
-                            className="w-1 bg-[#F4C430] rounded-full"
+                            className="w-1.5 bg-[#F4C430] rounded-full"
                             style={{ height: `${h}%` }}
                           />
                         )
@@ -198,80 +193,86 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
                 )}
 
                 {doc.file_type === 'image' && (
-                  <div className="aspect-video bg-[#111318] text-white rounded border border-slate-800 relative overflow-hidden flex flex-col items-center justify-center p-2">
-                    <div className="w-full h-full border border-dashed border-emerald-500/50 rounded flex items-center justify-center relative bg-emerald-950/20">
-                      <div className="absolute top-1/4 left-1/3 w-20 h-10 border-2 border-red-500 rounded bg-red-500/30 animate-pulse flex items-start p-0.5">
-                        <span className="text-[7px] bg-red-600 text-white font-black px-0.5">WEAPON</span>
+                  <div className="aspect-video bg-[#090A0D] text-white rounded-lg border border-slate-800 relative overflow-hidden flex flex-col items-center justify-center p-2">
+                    <div className="w-full h-full border border-dashed border-emerald-500/60 rounded flex items-center justify-center relative bg-emerald-950/30">
+                      <div className="absolute top-1/4 left-1/3 w-24 h-12 border-2 border-red-500 rounded bg-red-500/40 animate-pulse flex items-start p-1">
+                        <span className="text-[8px] bg-red-600 text-white font-black px-1 rounded">GLOCK 19</span>
                       </div>
-                      <span className="text-[9px] font-mono text-slate-400">CCTV NIGHTVISION 04</span>
+                      <span className="text-xs font-mono text-slate-300 font-bold">CCTV OPTICAL #04</span>
                     </div>
                   </div>
                 )}
 
                 {doc.file_type === 'text' && (
-                  <div className="p-3 bg-white rounded border border-slate-300 font-mono text-[10px] text-slate-700 leading-tight line-clamp-4">
+                  <div className="p-3 bg-white rounded-lg border border-slate-300 font-mono text-xs text-slate-900 leading-snug line-clamp-4 font-medium">
                     {doc.content_text}
                   </div>
                 )}
 
-                <div className="text-[10px] text-slate-600 font-mono flex items-center justify-between">
+                <div className="text-xs text-slate-800 font-mono flex items-center justify-between font-bold">
                   <span>LOGGED: {new Date(doc.uploaded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST</span>
-                  <span className="text-emerald-800 font-black">HASH VERIFIED</span>
+                  <span className="text-emerald-800 font-black">SHA-256 OK</span>
                 </div>
               </div>
 
               {/* Center Column: Title, Metadata, Transcript Block */}
-              <div className="flex-1 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-black text-slate-950 uppercase tracking-tight">
+              <div className="flex-1 space-y-3 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="text-sm lg:text-base font-black text-black uppercase tracking-tight break-words">
                     {doc.title}
                   </h3>
                   <button
-                    onClick={() => onOpenProvenance(doc.id, 'Line 1-8', doc.content_text?.slice(0, 180))}
-                    className="text-xs text-indigo-700 hover:text-indigo-900 font-black flex items-center space-x-1"
+                    onClick={() => onOpenProvenance(doc.id, 'Line 1-8', doc.content_text?.slice(0, 200))}
+                    className="text-xs text-indigo-900 hover:text-indigo-700 font-extrabold flex items-center space-x-1 shrink-0 bg-indigo-100 hover:bg-indigo-200 px-2.5 py-1 rounded transition"
                   >
-                    <span>INSPECT IN PLACE</span>
+                    <span>INSPECT PROVENANCE</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
-                <div className="text-[11px] text-slate-600 font-mono flex flex-wrap items-center gap-3">
-                  <span>PATH: <code className="bg-slate-200 px-1 py-0.5 rounded text-slate-900">{doc.storage_path}</code></span>
-                  <span>OFFICER: <strong>{doc.uploaded_by}</strong></span>
+                <div className="text-xs text-slate-800 font-mono flex flex-wrap items-center gap-3 font-semibold">
+                  <span className="truncate">STORAGE: <code className="bg-white px-1.5 py-0.5 rounded text-black font-bold border border-slate-300">{doc.storage_path}</code></span>
+                  <span>DEPOSITED BY: <strong className="text-black">{doc.uploaded_by}</strong></span>
                 </div>
 
-                {/* Inline Transcript Block with Speaker Tags */}
-                <div className="bg-white p-3.5 rounded border border-slate-300 font-sans text-xs text-slate-800 leading-relaxed max-h-36 overflow-y-auto whitespace-pre-wrap select-text">
+                {/* Inline Transcript Block */}
+                <div className="bg-white p-4 rounded-lg border border-slate-300 font-sans text-xs text-slate-900 leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap select-text font-medium shadow-inner">
                   {doc.content_text}
                 </div>
               </div>
 
               {/* Right Column: Extracted Entities Panel */}
-              <div className="lg:w-64 shrink-0 bg-[#E2DDD2] p-3.5 rounded border border-slate-300/80 space-y-2.5">
+              <div className="lg:w-64 shrink-0 bg-[#E0D9CB] p-4 rounded-lg border border-slate-300 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase text-slate-700 tracking-wider">
+                  <span className="text-xs font-black uppercase text-slate-900 tracking-wider">
                     EXTRACTED ENTITIES
                   </span>
-                  <span className="text-[9px] bg-emerald-800 text-white px-1.5 py-0.2 rounded font-black">
-                    94% MATCH
+                  <span className="text-[10px] bg-emerald-800 text-white px-2 py-0.5 rounded font-black">
+                    VERIFIED
                   </span>
                 </div>
 
                 <div className="space-y-1.5">
-                  {entityList.map((ent, idx) => (
-                    <div
-                      key={idx}
-                      className="p-1.5 bg-white rounded border border-slate-300 text-xs font-bold text-slate-900 flex items-center justify-between shadow-xs"
-                    >
-                      <span className="truncate">{ent}</span>
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0 ml-1" />
+                  {entityList.length > 0 ? (
+                    entityList.map((ent, idx) => (
+                      <div
+                        key={idx}
+                        className="p-2 bg-white rounded border border-slate-300 text-xs font-bold text-black flex items-center justify-between shadow-xs truncate"
+                      >
+                        <span className="truncate">{ent}</span>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 ml-1.5" />
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-2 bg-white rounded text-xs text-slate-600">
+                      Processing telemetry...
                     </div>
-                  ))}
+                  )}
                 </div>
 
-                <div className="pt-2 border-t border-slate-300/80 text-[10px] text-slate-600 flex items-center justify-between">
-                  <span>AUTONOMOUS EXTRACTION</span>
-                  <span className="text-indigo-800 font-bold">GROQ LLM</span>
+                <div className="pt-2 border-t border-slate-300 text-xs text-slate-800 flex items-center justify-between font-bold">
+                  <span>EXTRACTION ENGINE</span>
+                  <span className="text-indigo-900 font-black">NER + LLM</span>
                 </div>
               </div>
             </div>
