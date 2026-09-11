@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const GEMINI_BACKUP_KEY = process.env.GEMINI_BACKUP_KEY || '';
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,7 +17,6 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
     const base64Image = buffer.toString('base64');
     const mimeType = file.type || 'image/jpeg';
-    const dataUrl = `data:${mimeType};base64,${base64Image}`;
 
     const prompt = `You are a forensic image analyst. Analyze this image carefully.
 Extract all visible text (including Hindi or English text), signs, dates, timestamps, locations, and places.
@@ -27,44 +27,62 @@ Focus heavily on identifying details related to the case context.
 
 Provide a detailed, objective forensic observation log of the image.`;
 
-    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'qwen/qwen3.8-27b',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: prompt },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: dataUrl,
-                },
-              },
-            ],
-          },
-        ],
-        temperature: 0.2,
-      }),
-    });
+    let responseText = '';
+    let success = false;
+    let lastError = '';
 
-    if (!groqRes.ok) {
-      const errText = await groqRes.text();
-      console.error('Groq Vision failed:', groqRes.status, errText);
-      return NextResponse.json({ error: `Vision API error: ${groqRes.status}`, details: errText }, { status: groqRes.status });
+    const keys = [GEMINI_API_KEY, GEMINI_BACKUP_KEY].filter(Boolean);
+
+    if (keys.length === 0) {
+      return NextResponse.json({ error: 'No Gemini API keys configured' }, { status: 500 });
     }
 
-    const groqData = await groqRes.json();
-    const observationText = groqData.choices?.[0]?.message?.content || '';
+    for (const key of keys) {
+      const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: prompt },
+                {
+                  inline_data: {
+                    mime_type: mimeType,
+                    data: base64Image,
+                  },
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.2,
+          },
+        }),
+      });
+
+      if (geminiRes.ok) {
+        const data = await geminiRes.json();
+        responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        success = true;
+        break; // Stop trying keys if successful
+      } else {
+        const errText = await geminiRes.text();
+        lastError = `Gemini Vision API error: ${geminiRes.status} ${errText}`;
+        console.warn(`Gemini API key failed (Status: ${geminiRes.status}), trying next if available...`);
+      }
+    }
+
+    if (!success) {
+      console.error('All Gemini Vision attempts failed:', lastError);
+      return NextResponse.json({ error: lastError }, { status: 502 });
+    }
 
     return NextResponse.json({
       success: true,
-      observation: observationText,
+      observation: responseText,
     });
   } catch (error: any) {
     console.error('Vision API error:', error);
