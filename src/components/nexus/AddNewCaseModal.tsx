@@ -114,17 +114,53 @@ function AddNewCaseModalInner({ onClose, filingAgency }: AddNewCaseModalProps) {
       return;
     }
 
-    if (file.type.startsWith('image/')) setFileType('image');
-    else if (file.type.startsWith('video/')) setFileType('video');
-    else setFileType('text');
+    if (file.type.startsWith('image/')) {
+      setFileType('image');
+      setIsTranscribing(true);
+      setTranscribeStatus('👁️ Groq Vision AI: Scanning image for locations, dates, vehicles, and names...');
+      setContentText(`[Scanning image using Groq Vision AI (${file.name})... please wait]`);
 
-    if (file.type.includes('text') || file.name.endsWith('.txt') || file.name.endsWith('.log') || file.name.endsWith('.json')) {
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const fullCaseName = caseNumber.trim() ? `${caseNumber.trim()}: ${caseName.trim()}` : caseName.trim();
+        formData.append('caseContext', fullCaseName || evidenceTitle);
+
+        const res = await fetch('/api/ai/vision', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setContentText(`[GROQ VISION FORENSIC SCAN — ${file.name}]\n\n${data.observation}`);
+          setTranscribeStatus('✅ Image scanned and optical data extracted');
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          setContentText(`[Image: ${file.name}]\n(Manual notes can be entered)`);
+          setTranscribeStatus(`⚠️ Vision AI failed: ${errData.error || res.statusText}`);
+        }
+      } catch (err: any) {
+        console.error('Vision extraction error:', err);
+        setContentText(`[Image: ${file.name}]\n(Vision extraction error)`);
+        setTranscribeStatus('⚠️ Network error during Vision API call');
+      } finally {
+        setIsTranscribing(false);
+      }
+      return;
+    } else if (file.type.startsWith('video/')) {
+      setFileType('video');
+    } else {
+      setFileType('text');
+    }
+
+    if (file.type.includes('text') || file.type.includes('csv') || file.name.endsWith('.csv') || file.name.endsWith('.txt') || file.name.endsWith('.log') || file.name.endsWith('.json')) {
       const reader = new FileReader();
       reader.onload = (e) => setContentText(e.target?.result as string);
       reader.readAsText(file);
     } else {
       setContentText(
-        `[Multimodal Ingest: ${file.name}]\nFormat: ${file.type || 'Binary'}\nSize: ${(file.size / 1024).toFixed(1)} KB\nExtracted forensic telemetry ready for Sarvam AI model analysis.`
+        `[Multimodal Ingest: ${file.name}]\nFormat: ${file.type || 'Binary'}\nSize: ${(file.size / 1024).toFixed(1)} KB\nExtracted forensic telemetry ready for AI model analysis.`
       );
     }
   }, [evidenceTitle]);
@@ -327,7 +363,7 @@ function AddNewCaseModalInner({ onClose, filingAgency }: AddNewCaseModalProps) {
                   <span className="underline text-blue-700">browse</span>
                 </p>
                 <p className="text-[10px] text-slate-500 font-bold mt-1">
-                  .txt · .pdf · .mp3 · .wav · .jpg · .png · .mp4 (English &amp; Hindi Audio Supported)
+                  .txt · .csv · .pdf · .mp3 · .wav · .jpg · .png · .mp4 (Hindi Audio & OCR Supported)
                 </p>
               </div>
 
@@ -396,7 +432,7 @@ function AddNewCaseModalInner({ onClose, filingAgency }: AddNewCaseModalProps) {
                   </div>
                   {isTranscribing && (
                     <span className="text-[10px] bg-black text-white px-2 py-0.5 uppercase tracking-widest font-mono">
-                      SARVAM STT
+                      {fileType === 'image' ? 'GROQ VISION' : 'SARVAM STT'}
                     </span>
                   )}
                 </div>

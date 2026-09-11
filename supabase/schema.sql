@@ -172,12 +172,13 @@ CREATE INDEX IF NOT EXISTS idx_connection_requests_case ON connection_requests(c
 CREATE INDEX IF NOT EXISTS idx_connection_requests_target ON connection_requests(target_agency_id, status);
 
 -- 5. REALTIME PUBLICATION ENABLEMENT
-ALTER PUBLICATION supabase_realtime ADD TABLE events;
-ALTER PUBLICATION supabase_realtime ADD TABLE relationships;
-ALTER PUBLICATION supabase_realtime ADD TABLE contradictions;
-ALTER PUBLICATION supabase_realtime ADD TABLE documents;
-ALTER PUBLICATION supabase_realtime ADD TABLE entities;
-ALTER PUBLICATION supabase_realtime ADD TABLE connection_requests;
+-- Wrapped in DO blocks so re-running the schema doesn't fail with duplicate errors
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE events; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE relationships; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE contradictions; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE documents; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE entities; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE connection_requests; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- 6. ROW LEVEL SECURITY (stubs — enforce in production)
 -- An agency may view a case if:

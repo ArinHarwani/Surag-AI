@@ -43,7 +43,8 @@ export interface ExtractionResult {
  */
 export async function extractDocumentIntelligence(
   doc: Document,
-  existingEntities: Entity[] = []
+  existingEntities: Entity[] = [],
+  caseName?: string
 ): Promise<ExtractionResult> {
   const content = doc.content_text || doc.title;
 
@@ -58,6 +59,7 @@ export async function extractDocumentIntelligence(
           content,
           file_type: doc.file_type,
           uploaded_by: doc.uploaded_by,
+          case_name: caseName,
         }),
       });
 
@@ -90,8 +92,7 @@ export async function extractDocumentIntelligence(
           messages: [
             { role: 'system', content: `${DETECTIVE_EXTRACTION_SYSTEM_PROMPT}\nSCHEMA:\n${DETECTIVE_EXTRACTION_JSON_SCHEMA}\nReturn ONLY valid JSON matching the schema.` },
             {
-              role: 'user',
-              content: `Analyze this document from ${doc.uploaded_by} (File Type: ${doc.file_type}):\n\nTITLE: ${doc.title}\nCONTENT:\n${content}`,
+              content: `Analyze this document from ${doc.uploaded_by} (File Type: ${doc.file_type}):\n\nCASE CONTEXT: ${caseName || 'Unknown'}\nTITLE: ${doc.title}\nCONTENT:\n${content}`,
             },
           ],
           temperature: 0.1,

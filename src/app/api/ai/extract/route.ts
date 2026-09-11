@@ -9,7 +9,7 @@ const SARVAM_API_KEY = process.env.SARVAM_API_KEY || '';
 
 export async function POST(req: NextRequest) {
   try {
-    const { title, content, file_type, uploaded_by } = await req.json();
+    const { title, content, file_type, uploaded_by, case_name } = await req.json();
     const rawContent = content || title || '';
 
     if (!rawContent.trim()) {
@@ -51,8 +51,11 @@ export async function POST(req: NextRequest) {
       : rawContent;
 
     const userPrompt = `Analyze this law enforcement investigative dossier from ${uploaded_by || 'Field Unit'} (File Type: ${file_type || 'text'}).
+CASE CONTEXT: ${case_name || 'General Investigation'}
+CRITICAL INSTRUCTION: If the case context highlights a specific person (e.g., a kidnapped child), place, vehicle, or event, you MUST prioritize extracting details and relationships relevant to them. Pay close attention to extracting all named entities mentioned in the document.
+
 Extract all entities (person, vehicle, location, weapon, organization, object), chronological events with timestamps and locations, and inferred relationships.
-Support both English and Hindi named entities accurately.
+Support both English and Hindi named entities accurately. Ensure Hindi text is extracted with all important details and equivalent precision as English text.
 
 Return ONLY a valid JSON object matching this schema:
 ${DETECTIVE_EXTRACTION_JSON_SCHEMA}

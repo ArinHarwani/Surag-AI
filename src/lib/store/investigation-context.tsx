@@ -392,7 +392,7 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
       }));
 
       setProcessingStatusText('Extracting grounded entities, real-world timestamps & source offsets...');
-      const extraction = await extractDocumentIntelligence(newDoc, state.entities);
+      const extraction = await extractDocumentIntelligence(newDoc, state.entities, caseName);
 
       setState((prev) => {
         const newEntityRecords: Entity[] = extraction.entities
