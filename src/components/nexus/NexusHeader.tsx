@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import {
-  Shield,
   RotateCcw,
   FolderPlus,
   Link2,
@@ -109,12 +108,13 @@ export const NexusHeader: React.FC<NexusHeaderProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-3">
 
         {/* LEFT: Logo + Agency Identity */}
-        <div className="flex items-center gap-4">
-          <div
-            className="w-11 h-11 rounded-md flex items-center justify-center shadow-brutal border-2 border-black shrink-0"
-            style={{ backgroundColor: cfg.accentColor }}
-          >
-            <Shield className="w-6 h-6 text-white stroke-[2.2]" />
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-black shadow-brutal bg-white p-0.5 flex items-center justify-center shrink-0">
+            <img
+              src="/rajasthan-police-logo.png"
+              alt="Rajasthan Police Emblem"
+              className="w-full h-full object-contain rounded-full"
+            />
           </div>
           <div className="flex flex-col justify-center">
             <h1 className="text-xl sm:text-2xl font-black tracking-widest text-black uppercase leading-none font-mono">
