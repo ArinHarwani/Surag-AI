@@ -13,7 +13,8 @@ import {
   ConnectionRequest,
   AgencySlug,
 } from '@/types/investigation';
-import { realtimeRelay } from '@/lib/supabase/client';
+import { supabase, realtimeRelay } from '@/lib/supabase/client';
+import { checkAndSeedSupabase } from '@/lib/supabase/init';
 import { extractDocumentIntelligence, explainContradiction } from '@/lib/ai/pipeline';
 import { findCandidateContradictions } from '@/lib/ai/deterministic-detector';
 
@@ -22,14 +23,14 @@ import { findCandidateContradictions } from '@/lib/ai/deterministic-detector';
 // ──────────────────────────────────────────────────────────────────────────────
 const AGENCIES: Record<AgencySlug, Agency> = {
   jodhpur: {
-    id: 'agency-jodhpur-01',
+    id: '11111111-1111-1111-1111-111111111111',
     name: 'Jodhpur Police Department',
     slug: 'jodhpur',
     color: '#0284c7',
     badge: 'JODHPUR-HQ',
   },
   kota: {
-    id: 'agency-kota-01',
+    id: '22222222-2222-2222-2222-222222222222',
     name: 'Kota Police Commissionerate',
     slug: 'kota',
     color: '#d97706',
@@ -163,26 +164,78 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
   }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as Partial<CaseState>;
+    let mounted = true;
+    async function initSupabase() {
+      // 1. Seed agencies
+      await checkAndSeedSupabase();
+      if (!supabase) return;
+
+      // 2. Fetch all data
+      const [
+        { data: cases },
+        { data: docs },
+        { data: ents },
+        { data: evts },
+        { data: rels },
+        { data: cons },
+        { data: reqs },
+      ] = await Promise.all([
+        supabase.from('cases').select('*').order('created_at', { ascending: false }).limit(1),
+        supabase.from('documents').select('*').order('uploaded_at', { ascending: false }),
+        supabase.from('entities').select('*'),
+        supabase.from('events').select('*'),
+        supabase.from('relationships').select('*'),
+        supabase.from('contradictions').select('*'),
+        supabase.from('connection_requests').select('*'),
+      ]);
+
+      if (mounted && cases && cases.length > 0) {
+        const activeCase = cases[0];
+        // Convert to UI state
         setState((prev) => ({
           ...prev,
-          ...parsed,
-          // Ensure arrays are always arrays
-          documents: parsed.documents ?? [],
-          entities: parsed.entities ?? [],
-          events: parsed.events ?? [],
-          relationships: parsed.relationships ?? [],
-          contradictions: parsed.contradictions ?? [],
-          connectionRequests: parsed.connectionRequests ?? [],
+          activeCaseId: activeCase.id,
+          activeCaseName: activeCase.name,
+          activeCaseFilingAgency: Object.values(AGENCIES).find(a => a.id === activeCase.filing_agency_id)?.slug ?? null,
+          documents: (docs || []).map(d => ({ ...d, media_url: d.storage_path })) as Document[],
+          entities: (ents || []) as Entity[],
+          events: (evts || []) as Event[],
+          relationships: (rels || []) as Relationship[],
+          contradictions: (cons || []) as Contradiction[],
+          connectionRequests: (reqs || []).map(r => ({
+            ...r,
+            requesting_agency_slug: Object.values(AGENCIES).find(a => a.id === r.requesting_agency_id)?.slug,
+            target_agency_slug: Object.values(AGENCIES).find(a => a.id === r.target_agency_id)?.slug,
+          })) as ConnectionRequest[],
         }));
+      } else if (mounted) {
+        // Fallback to local storage if DB is totally empty
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            const parsed = JSON.parse(saved) as Partial<CaseState>;
+            setState((prev) => ({
+              ...prev,
+              ...parsed,
+              documents: parsed.documents ?? [],
+              entities: parsed.entities ?? [],
+              events: parsed.events ?? [],
+              relationships: parsed.relationships ?? [],
+              contradictions: parsed.contradictions ?? [],
+              connectionRequests: parsed.connectionRequests ?? [],
+            }));
+          }
+        } catch (e) {
+          console.warn('Failed to parse cached investigation state:', e);
+        }
       }
-    } catch (e) {
-      console.warn('Failed to parse cached investigation state:', e);
     }
+    
+    if (typeof window !== 'undefined') {
+      initSupabase();
+    }
+    
+    return () => { mounted = false; };
   }, []);
 
   // ── Realtime cross-tab sync ────────────────────────────────────────────────
@@ -309,13 +362,13 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
       const agency = AGENCIES[docData.agency_slug];
 
       // Determine case context — first ingest creates the case
-      const caseId = state.activeCaseId ?? `case-${Date.now()}`;
+      const caseId = state.activeCaseId ?? crypto.randomUUID();
       const caseName =
         docData.caseName || state.activeCaseName || `Case opened: ${docData.title}`;
       const filingAgency: AgencySlug =
         state.activeCaseFilingAgency ?? docData.agency_slug;
 
-      const docId = `doc-${Date.now()}`;
+      const docId = crypto.randomUUID();
       const newDoc: Document = {
         id: docId,
         case_id: caseId,
@@ -345,7 +398,7 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         const newEntityRecords: Entity[] = extraction.entities
           .filter((raw) => !prev.entities.some((e) => e.name.toLowerCase() === raw.name.toLowerCase()))
           .map((raw, idx) => ({
-            id: `ent-${Date.now()}-${idx}`,
+            id: crypto.randomUUID(),
             case_id: caseId,
             agency_id: agency.id,
             type: raw.type,
@@ -357,7 +410,7 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         const allEntities = [...prev.entities, ...newEntityRecords];
 
         const newEventRecords: Event[] = extraction.events.map((raw, idx) => ({
-          id: `evt-${Date.now()}-${idx}`,
+          id: crypto.randomUUID(),
           case_id: caseId,
           document_id: docId,
           description: raw.description,
@@ -383,10 +436,10 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
               allEntities[1] ||
               allEntities[0];
             return {
-              id: `rel-${Date.now()}-${idx}`,
+              id: crypto.randomUUID(),
               case_id: caseId,
-              source_entity_id: sourceEnt?.id ?? 'ent-0',
-              target_entity_id: targetEnt?.id ?? 'ent-1',
+              source_entity_id: sourceEnt?.id ?? crypto.randomUUID(),
+              target_entity_id: targetEnt?.id ?? crypto.randomUUID(),
               relationship_type: raw.relationship_type || 'CONNECTED_TO',
               description: raw.description,
               confidence: raw.confidence,
@@ -407,7 +460,7 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
           prev.contradictions
         );
         const newContradictionRecords: Contradiction[] = candidateContradictions.map((c, i) => ({
-          id: `con-${Date.now()}-${i}`,
+          id: crypto.randomUUID(),
           case_id: caseId,
           event_a_id: c.eventA.id,
           event_b_id: c.eventB.id,
@@ -448,6 +501,49 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
 
         persistState(next);
 
+        // Supabase Writes
+        if (supabase) {
+          (async () => {
+            try {
+              if (prev.activeCaseId !== caseId) {
+                await supabase.from('cases').upsert({
+                  id: caseId,
+                  name: caseName,
+                  filing_agency_id: AGENCIES[filingAgency].id,
+                });
+              }
+
+              await supabase.from('documents').insert({
+                id: processedDoc.id,
+                case_id: processedDoc.case_id,
+                agency_id: processedDoc.agency_id,
+                uploaded_by: processedDoc.uploaded_by,
+                title: processedDoc.title,
+                file_type: processedDoc.file_type,
+                content_text: processedDoc.content_text,
+                storage_path: processedDoc.media_url,
+                status: processedDoc.status,
+                uploaded_at: processedDoc.uploaded_at,
+              });
+
+              if (newEntityRecords.length > 0) {
+                await supabase.from('entities').insert(newEntityRecords);
+              }
+              if (newEventRecords.length > 0) {
+                await supabase.from('events').insert(newEventRecords);
+              }
+              if (newRelationshipRecords.length > 0) {
+                await supabase.from('relationships').insert(newRelationshipRecords);
+              }
+              if (newContradictionRecords.length > 0) {
+                await supabase.from('contradictions').insert(newContradictionRecords);
+              }
+            } catch (err) {
+              console.error('Failed to sync ingestion to Supabase', err);
+            }
+          })();
+        }
+
         // Broadcast for cross-tab sync
         realtimeRelay.publish('DOCUMENT_INGESTED', {
           caseId,
@@ -484,6 +580,9 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         ),
       };
       persistState(next);
+      if (supabase) {
+        supabase.from('relationships').update({ status }).eq('id', relationshipId).then();
+      }
       realtimeRelay.publish('RELATIONSHIP_UPDATED', { relationshipId, status });
       return next;
     });
@@ -498,6 +597,9 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         ),
       };
       persistState(next);
+      if (supabase) {
+        supabase.from('contradictions').update({ status }).eq('id', contradictionId).then();
+      }
       realtimeRelay.publish('CONTRADICTION_UPDATED', { contradictionId, status });
       return next;
     });
@@ -512,7 +614,7 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
     if (!state.activeCaseId || !state.activeCaseName) return;
 
     const req: ConnectionRequest = {
-      id: `creq-${Date.now()}`,
+      id: crypto.randomUUID(),
       case_id: state.activeCaseId,
       case_name: state.activeCaseName,
       requesting_agency_slug: requestingAgency,
@@ -528,6 +630,17 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         connectionRequests: [req, ...prev.connectionRequests],
       };
       persistState(next);
+      if (supabase) {
+        supabase.from('connection_requests').insert({
+          id: req.id,
+          case_id: req.case_id,
+          requesting_agency_id: AGENCIES[req.requesting_agency_slug].id,
+          target_agency_id: AGENCIES[req.target_agency_slug].id,
+          case_brief_snapshot: req.case_brief_snapshot,
+          status: req.status,
+          created_at: req.created_at,
+        }).then();
+      }
       return next;
     });
 
@@ -548,6 +661,9 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         ),
       };
       persistState(next);
+      if (supabase) {
+        supabase.from('connection_requests').update({ status: response, responded_at }).eq('id', requestId).then();
+      }
       return next;
     });
     realtimeRelay.publish('CONNECTION_REQUEST_RESPONDED', {
