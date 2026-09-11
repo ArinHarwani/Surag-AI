@@ -16,6 +16,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { AgencySlug } from '@/types/investigation';
+import { formatEvidenceTitleFromFile, generateOpticalTelemetry } from '@/lib/utils/evidenceFormatter';
 
 interface AddNewCaseModalProps {
   onClose: () => void;
@@ -70,7 +71,6 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
     const file = acceptedFiles[0];
-    if (!evidenceTitle) setEvidenceTitle(file.name.replace(/\.[^/.]+$/, ''));
 
     const isAudio =
       fileType === 'audio' ||
@@ -80,6 +80,7 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
 
     if (isAudio) {
       setFileType('audio');
+      setEvidenceTitle(formatEvidenceTitleFromFile(file.name, 'audio'));
       setIsTranscribing(true);
       setTranscribeStatus('🎙️ Sarvam AI (Saaras): Transcribing speech (English / Hindi)...');
       setContentText(`[Transcribing audio via Sarvam AI (${file.name})... please wait]`);
@@ -146,23 +147,46 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
       setFileType('image');
       const reader = new FileReader();
       reader.onload = (e) => {
-        const dataUrl = e.target?.result as string;
-        setMediaUrl(dataUrl);
+        setMediaUrl(e.target?.result as string);
       };
       reader.readAsDataURL(file);
 
-      // Pre-fill forensic telemetry for image / CCTV
-      setContentText(
-        `[CCTV OPTICAL FORENSIC TELEMETRY]\n` +
-        `Camera: NH-52 Toll Plaza Kota Bound, Lane 4\n` +
-        `Date: 12 OCT 2023\n` +
-        `Time: 16:32:04\n` +
-        `Vehicle Plate: RJ10E64747 (White Swift Hatchback)\n` +
-        `Exhibit: Evidence Frame 4 - Exhibit B\n` +
-        `Location: NH-52 Toll Plaza, Kota Bound\n` +
-        `Source File: ${file.name}`
-      );
-      if (!evidenceTitle) setEvidenceTitle('CCTV Toll Plaza Frame #4 - NH-52');
+      const dynamicTitle = formatEvidenceTitleFromFile(file.name, 'image');
+      setEvidenceTitle(dynamicTitle);
+
+      const baseTelemetry = generateOpticalTelemetry(file, filingAgency);
+      setContentText(baseTelemetry);
+
+      setIsTranscribing(true);
+      setTranscribeStatus('🔍 Optical AI: Scanning image for signs, plates, or timestamps...');
+
+      try {
+        const ocrFormData = new FormData();
+        ocrFormData.append('file', file);
+        const ocrRes = await fetch('/api/ai/ocr', {
+          method: 'POST',
+          body: ocrFormData,
+        });
+
+        if (ocrRes.ok) {
+          const ocrData = await ocrRes.json();
+          if (ocrData.has_text && ocrData.text?.trim()) {
+            setContentText(
+              `${baseTelemetry}\n\n--- EXTRACTED OPTICAL OCR TEXT OVERLAYS ---\n${ocrData.text.trim()}`
+            );
+            setTranscribeStatus(`✅ OCR Text Extracted (${ocrData.text.split('\n').filter(Boolean).length} lines found)`);
+          } else {
+            setTranscribeStatus(`✅ Optical evidence loaded (${(file.size / 1024).toFixed(1)} KB)`);
+          }
+        } else {
+          setTranscribeStatus(`✅ Optical evidence loaded (${(file.size / 1024).toFixed(1)} KB)`);
+        }
+      } catch (err) {
+        console.warn('OCR error:', err);
+        setTranscribeStatus(`✅ Optical evidence loaded (${(file.size / 1024).toFixed(1)} KB)`);
+      } finally {
+        setIsTranscribing(false);
+      }
       return;
     }
 
@@ -173,14 +197,20 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
 
     if (isVideo) {
       setFileType('video');
+      setEvidenceTitle(formatEvidenceTitleFromFile(file.name, 'video'));
       const reader = new FileReader();
       reader.onload = (e) => {
         setMediaUrl(e.target?.result as string);
       };
       reader.readAsDataURL(file);
-    } else {
-      setFileType('text');
+      setContentText(
+        `[VIDEO SURVEILLANCE FOOTAGE // ${file.name}]\nFormat: ${file.type || 'video/mp4'}\nSize: ${(file.size / 1024).toFixed(1)} KB\nTimestamp: ${new Date().toLocaleString('en-IN')}\n\nOfficer Video Log Notes:\n- Recorded surveillance footage attached for timeline verification.`
+      );
+      return;
     }
+
+    setFileType('text');
+    setEvidenceTitle(formatEvidenceTitleFromFile(file.name, 'text'));
 
     if (file.type.includes('text') || file.name.endsWith('.txt') || file.name.endsWith('.log') || file.name.endsWith('.json')) {
       const reader = new FileReader();
@@ -188,10 +218,10 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
       reader.readAsText(file);
     } else {
       setContentText(
-        `[Multimodal Ingest: ${file.name}]\nFormat: ${file.type || 'Binary'}\nSize: ${(file.size / 1024).toFixed(1)} KB\nExtracted forensic telemetry ready for Sarvam AI model analysis.`
+        `[DOCUMENTARY INGEST: ${file.name}]\nFormat: ${file.type || 'Binary'}\nSize: ${(file.size / 1024).toFixed(1)} KB\nExtracted forensic content ready for Sarvam AI model analysis.`
       );
     }
-  }, [evidenceTitle, fileType]);
+  }, [evidenceTitle, fileType, filingAgency]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -429,7 +459,7 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
                       📷 OPTICAL EVIDENCE PREVIEW LOADED
                     </div>
                     <div className="text-[10px] text-slate-300">
-                      Telemetry populated for Sarvam AI extraction (Car plate, location, date, time).
+                      Visual evidence loaded &middot; Forensic telemetry ready for AI extraction.
                     </div>
                   </div>
                 </div>
@@ -448,6 +478,29 @@ function AddNewCaseModalInner({ onClose, filingAgency, isAddingEvidence = false 
                     </span>
                   </div>
                   <audio controls className="w-full h-8" src={mediaUrl} />
+                </div>
+              )}
+
+              {/* Processing / Transcription / OCR Status Banner */}
+              {(isTranscribing || transcribeStatus) && (
+                <div
+                  className={`p-2.5 border-2 border-black text-xs font-bold flex items-center justify-between gap-2 ${
+                    isTranscribing ? 'bg-yellow-100 text-black animate-pulse' : 'bg-green-50 text-emerald-950'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {fileType === 'audio' ? (
+                      <Volume2 className="w-4 h-4 shrink-0 text-black" />
+                    ) : (
+                      <Sparkles className="w-4 h-4 shrink-0 text-black" />
+                    )}
+                    <span>{transcribeStatus}</span>
+                  </div>
+                  {isTranscribing && (
+                    <span className="text-[10px] bg-black text-white px-2 py-0.5 uppercase tracking-widest font-mono">
+                      AI SCAN
+                    </span>
+                  )}
                 </div>
               )}
 

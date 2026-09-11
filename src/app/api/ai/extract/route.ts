@@ -50,14 +50,15 @@ export async function POST(req: NextRequest) {
       ? `ORIGINAL HINDI:\n${rawContent}\n\nENGLISH TRANSLATION:\n${translatedEnglish}`
       : rawContent;
 
-    // Image-specific OCR forensic prompt
-    const imageSystemPrompt = `You are a forensic image analysis AI for law enforcement.
-From image filename and metadata, extract ALL structured forensic information:
-- Vehicle license plate numbers (exact string, e.g. RJ14CE4747)
-- Camera location / CCTV identifier / road/highway name
-- Date and time overlaid on image (exact as shown, e.g. 12 OCT 2023, 16:32:04)
-- Persons, vehicles, objects visible
-- Any text overlays (case numbers, exhibit labels, camera IDs)
+    // Image-specific optical forensic prompt
+    const imageSystemPrompt = `You are a forensic evidence analysis AI for law enforcement.
+From the photographic/optical evidence record, officer observations, and any OCR text overlays, extract ALL structured forensic information:
+- Persons mentioned or observed (names, roles, witnesses, suspects)
+- Vehicles and license plates ONLY if explicitly detected in OCR or mentioned in observations
+- Locations (markets, streets, intersections, toll plazas, cities, sectors)
+- Date and time from scene, metadata, or timestamps
+- Text overlays, signs, or exhibit labels
+Do NOT fabricate vehicle plates or locations that are not present in the input record.
 Return ONLY valid JSON matching this schema:
 ${DETECTIVE_EXTRACTION_JSON_SCHEMA}`;
 
@@ -66,12 +67,12 @@ ${DETECTIVE_EXTRACTION_JSON_SCHEMA}`;
       : `${DETECTIVE_EXTRACTION_SYSTEM_PROMPT}\nOutput pure valid JSON. No prose.`;
 
     const userPrompt = isImageType
-      ? `Analyze CCTV/forensic image evidence from ${uploaded_by || 'Field Unit'}.
-Filename: ${title || 'evidence_image'}
-Metadata/description:
+      ? `Analyze photographic / optical forensic evidence from ${uploaded_by || 'Field Unit'}.
+Title / Exhibit: ${title || 'Optical Evidence Exhibit'}
+Forensic Record & Metadata:
 ${combinedText}
 
-Extract: plates, location, date, time, persons, camera ID, text overlays. Return ONLY valid JSON.`
+Extract verified entities (persons, locations, vehicles, timestamps) and events. Do NOT invent unseen license plates. Return ONLY valid JSON.`
       : `Analyze law enforcement dossier from ${uploaded_by || 'Field Unit'} (Type: ${file_type || 'text'}).
 SCHEMA:
 ${DETECTIVE_EXTRACTION_JSON_SCHEMA}

@@ -6,6 +6,11 @@ import { useDropzone } from 'react-dropzone';
 import { useInvestigation } from '@/lib/store/investigation-context';
 import { Document, AgencySlug } from '@/types/investigation';
 import {
+  formatEvidenceTitleFromFile,
+  generateOpticalTelemetry,
+  generateInitialKotaEvidenceDisclosure,
+} from '@/lib/utils/evidenceFormatter';
+import {
   Link2,
   X,
   Send,
@@ -58,25 +63,14 @@ function ConnectionRequestModalInner({
   const [submittingStatus, setSubmittingStatus] = useState('');
 
   // Media evidence inputs (used when Kota transmits evidence)
-  const [evidenceTitle, setEvidenceTitle] = useState('CCTV Toll Plaza Frame #4 - NH-52');
+  const [evidenceTitle, setEvidenceTitle] = useState('');
   const [author, setAuthor] = useState('Inspector V. Meena (Kota CID)');
   const [fileType, setFileType] = useState<'text' | 'audio' | 'image' | 'video'>('image');
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcribeStatus, setTranscribeStatus] = useState<string | null>(null);
 
-  const defaultKotaTelemetry = [
-    `[CCTV OPTICAL FORENSIC TELEMETRY // KOTA JURISDICTION]`,
-    `Camera: NH-52 Toll Plaza Kota Bound, Lane 4`,
-    `Date: 12 OCT 2023`,
-    `Time: 16:32:04`,
-    `Vehicle Plate: RJ10E64747 (White Swift Hatchback)`,
-    `Exhibit: Evidence Frame 4 - Exhibit B (Kota Checkpost Intercept)`,
-    `Location: NH-52 Toll Plaza, Kota Bound`,
-    `Lead Note: Suspect vehicle spotted entering Kota bypass heading towards Baran Road. Transmitting verified visual telemetry to Jodhpur Police HQ.`,
-  ].join('\n');
-
-  const [contentText, setContentText] = useState(defaultKotaTelemetry);
+  const [contentText, setContentText] = useState(() => generateInitialKotaEvidenceDisclosure());
 
   const getDefaultBrief = (target: AgencySlug) => {
     const targetAg = agencies[target];
@@ -196,17 +190,42 @@ function ConnectionRequestModalInner({
       };
       reader.readAsDataURL(file);
 
-      setContentText(
-        `[CCTV OPTICAL FORENSIC TELEMETRY // KOTA JURISDICTION]\n` +
-        `Camera: NH-52 Toll Plaza Kota Bound, Lane 4\n` +
-        `Date: 12 OCT 2023\n` +
-        `Time: 16:32:04\n` +
-        `Vehicle Plate: RJ10E64747 (White Swift Hatchback)\n` +
-        `Exhibit: Evidence Frame 4 - Exhibit B\n` +
-        `Location: NH-52 Toll Plaza, Kota Bound\n` +
-        `Source File: ${file.name}\n` +
-        `Kota CID Note: Vehicle spotted entering Kota. Transmitting optical evidence to Jodhpur HQ.`
-      );
+      const dynamicTitle = formatEvidenceTitleFromFile(file.name, 'image');
+      setEvidenceTitle(dynamicTitle);
+
+      const baseTelemetry = generateOpticalTelemetry(file, 'Kota Police CID');
+      setContentText(baseTelemetry);
+
+      setIsTranscribing(true);
+      setTranscribeStatus('🔍 Optical AI: Scanning image for signs, plates, or timestamps...');
+
+      try {
+        const ocrFormData = new FormData();
+        ocrFormData.append('file', file);
+        const ocrRes = await fetch('/api/ai/ocr', {
+          method: 'POST',
+          body: ocrFormData,
+        });
+
+        if (ocrRes.ok) {
+          const ocrData = await ocrRes.json();
+          if (ocrData.has_text && ocrData.text?.trim()) {
+            setContentText(
+              `${baseTelemetry}\n\n--- EXTRACTED OPTICAL OCR TEXT OVERLAYS ---\n${ocrData.text.trim()}`
+            );
+            setTranscribeStatus(`✅ OCR Text Extracted (${ocrData.text.split('\n').filter(Boolean).length} lines found)`);
+          } else {
+            setTranscribeStatus(`✅ Optical evidence loaded (${(file.size / 1024).toFixed(1)} KB)`);
+          }
+        } else {
+          setTranscribeStatus(`✅ Optical evidence loaded (${(file.size / 1024).toFixed(1)} KB)`);
+        }
+      } catch (err) {
+        console.warn('OCR error:', err);
+        setTranscribeStatus(`✅ Optical evidence loaded (${(file.size / 1024).toFixed(1)} KB)`);
+      } finally {
+        setIsTranscribing(false);
+      }
       return;
     }
 
@@ -217,14 +236,20 @@ function ConnectionRequestModalInner({
 
     if (isVideo) {
       setFileType('video');
+      setEvidenceTitle(formatEvidenceTitleFromFile(file.name, 'video'));
       const reader = new FileReader();
       reader.onload = (e) => {
         setMediaUrl(e.target?.result as string);
       };
       reader.readAsDataURL(file);
-    } else {
-      setFileType('text');
+      setContentText(
+        `[VIDEO SURVEILLANCE FOOTAGE // ${file.name}]\nFormat: ${file.type || 'video/mp4'}\nSize: ${(file.size / 1024).toFixed(1)} KB\nTimestamp: ${new Date().toLocaleString('en-IN')}\n\nOfficer Video Log Notes:\n- Recorded surveillance footage attached for timeline verification.`
+      );
+      return;
     }
+
+    setFileType('text');
+    setEvidenceTitle(formatEvidenceTitleFromFile(file.name, 'text'));
 
     if (file.type.includes('text') || file.name.endsWith('.txt') || file.name.endsWith('.log') || file.name.endsWith('.json')) {
       const reader = new FileReader();
@@ -232,7 +257,7 @@ function ConnectionRequestModalInner({
       reader.readAsText(file);
     } else {
       setContentText(
-        `[Multimodal Ingest: ${file.name}]\nFormat: ${file.type || 'Binary'}\nSize: ${(file.size / 1024).toFixed(1)} KB\nExtracted forensic telemetry ready for AI model analysis.`
+        `[DOCUMENTARY INGEST: ${file.name}]\nFormat: ${file.type || 'Binary'}\nSize: ${(file.size / 1024).toFixed(1)} KB\nExtracted forensic telemetry ready for AI model analysis.`
       );
     }
   }, [fileType]);
@@ -445,7 +470,7 @@ function ConnectionRequestModalInner({
                         📷 OPTICAL EVIDENCE PREVIEW LOADED
                       </div>
                       <div className="text-[10px] text-slate-300">
-                        Visual telemetry ready for extraction (Car plate, location: Kota, date, time).
+                        Visual evidence loaded &middot; Ready for Jodhpur transmission & AI extraction.
                       </div>
                     </div>
                   </div>
@@ -494,7 +519,7 @@ function ConnectionRequestModalInner({
                       type="text"
                       value={evidenceTitle}
                       onChange={(e) => setEvidenceTitle(e.target.value)}
-                      placeholder="e.g. CCTV Toll Plaza Frame #4 - NH-52"
+                      placeholder="e.g. Market Surveillance Photo, CCTV Frame, Audio Intercept"
                       className="w-full bg-[#FBF9F5] border-2 border-black text-xs font-bold text-black p-2 outline-none focus:bg-white font-sans"
                     />
                   </div>
