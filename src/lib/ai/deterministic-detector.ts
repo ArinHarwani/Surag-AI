@@ -95,6 +95,8 @@ export function findCandidateContradictions(
       }
 
       // ── Legacy alibi check (cross-city) ──────────────────────────────────────
+      const descA = (evtA.description || '').toLowerCase();
+      const descB = (evtB.description || '').toLowerCase();
       const isAlibiA = descA.includes('alibi') || descA.includes('claims') || descA.includes('denies');
       const isAlibiB = descB.includes('alibi') || descB.includes('claims') || descB.includes('denies');
 
@@ -102,6 +104,17 @@ export function findCandidateContradictions(
         candidates.push({
           eventA: evtA,
           eventB: evtB,
+          type: 'factual',
+          distanceKm,
+          timeDiffMinutes: Math.round(timeDiffMinutes),
+          speedRequiredKmh: Math.round(distanceKm / (Math.max(timeDiffMinutes, 1) / 60)),
+          deterministicReason: `Alibi contradiction: One record claims presence at ${
+            isAlibiA ? evtA.location_text : evtB.location_text
+          } while physical intelligence records subject at ${
+            isAlibiA ? evtB.location_text : evtA.location_text
+          } during the same operational window.`,
+        });
+      }
     }
   }
 
