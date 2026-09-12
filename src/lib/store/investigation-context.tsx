@@ -499,16 +499,14 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
           ).values()
         );
 
-        const newEventRecords: Event[] = extraction.events.map((raw, idx) => {
-          // Bug Fix #2: Use a DETERMINISTIC ID keyed on case+doc+description+timestamp
-          // so that re-uploading the same document produces identical IDs and Postgres
-          // upsert deduplicates them instead of inserting duplicates.
-          const deterministicSeed = `${caseId}|${docId}|${raw.description}|${raw.event_timestamp}`;
+        const newEventRecords: Event[] = extraction.events.map((raw) => {
+          // Deterministic ID keyed ONLY on case+description+timestamp (NOT docId which is
+          // a new UUID every upload and would cause a different ID each time).
+          const deterministicSeed = `${caseId}|${raw.description}|${raw.event_timestamp}`;
           let deterministicId = '';
           for (let i = 0; i < deterministicSeed.length; i++) {
             deterministicId += deterministicSeed.charCodeAt(i).toString(16);
           }
-          // Pad/trim to a UUID-like 36-char format
           const hex = deterministicId.replace(/[^a-f0-9]/gi, '').toLowerCase().padEnd(32, '0').slice(0, 32);
           const eventId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`;
 

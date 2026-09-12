@@ -40,19 +40,29 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Idempotency guard: delete existing events with matching descriptions in this case
-      // (document_id cannot be used since every upload generates a new UUID)
-      if (caseId && events && events.length > 0) {
-        const descriptionsToReplace = events.map((e: any) => e.description).filter(Boolean);
-        if (descriptionsToReplace.length > 0) {
-          await supabaseAdmin
-            .from('events')
-            .delete()
-            .eq('case_id', caseId)
-            .in('description', descriptionsToReplace);
-        }
+      // ── DEDUPLICATION (nuclear, case-level) ──────────────────────────────────
+      // The client sends allEvents = every event for the whole case. Delete all
+      // existing events for this case, then reinsert the clean deduplicated set.
+      // This is safe because allEvents is already deduplicated on the client.
+      if (caseId) {
+        await supabaseAdmin.from('events').delete().eq('case_id', caseId);
       }
 
+      // ── Year sanitization (server-side safety net) ─────────────────────────
+      // Force-correct any event timestamp whose year is more than 1 year from
+      // the current year (e.g. 2023 OCR'd from a CCTV overlay should be 2026).
+      const currentYear = new Date().getFullYear();
+      const sanitizedEvents = (events || []).map((ev: any) => {
+        try {
+          const d = new Date(ev.event_timestamp);
+          if (!isNaN(d.getTime()) && Math.abs(d.getFullYear() - currentYear) > 1) {
+            const corrected = new Date(ev.event_timestamp);
+            corrected.setFullYear(currentYear);
+            return { ...ev, event_timestamp: corrected.toISOString(), event_timestamp_confidence: 'inferred' };
+          }
+        } catch (_) {}
+        return ev;
+      });
 
       // 2. Insert Document
       if (document) {
@@ -75,9 +85,9 @@ export async function POST(req: NextRequest) {
         await supabaseAdmin.from('entities').upsert(entities);
       }
 
-      // 4. Insert Events
-      if (events && events.length > 0) {
-        await supabaseAdmin.from('events').upsert(events);
+      // 4. Insert Events (sanitized)
+      if (sanitizedEvents.length > 0) {
+        await supabaseAdmin.from('events').upsert(sanitizedEvents);
       }
 
       // 5. Insert Relationships
@@ -91,6 +101,7 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json({ success: true, docId: document?.id });
+
     }
 
     if (action === 'send_connection_request') {
