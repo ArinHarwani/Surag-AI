@@ -40,16 +40,19 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Bug Fix #2: Delete-before-insert idempotency guard.
-      // If the same document_id is re-uploaded, wipe its old rows first so we
-      // don't accumulate duplicate events, entities, or relationships.
-      if (document?.id) {
-        await Promise.all([
-          supabaseAdmin.from('events').delete().eq('document_id', document.id),
-          supabaseAdmin.from('entities').delete().eq('case_id', caseId).not('id', 'in', '()'), // entities are case-scoped, skip — they are deduped by name below
-          supabaseAdmin.from('relationships').delete().eq('case_id', caseId).in('source_document_ids', [document.id]),
-        ]).catch((e) => console.warn('Pre-delete idempotency warn:', e));
+      // Idempotency guard: delete existing events with matching descriptions in this case
+      // (document_id cannot be used since every upload generates a new UUID)
+      if (caseId && events && events.length > 0) {
+        const descriptionsToReplace = events.map((e: any) => e.description).filter(Boolean);
+        if (descriptionsToReplace.length > 0) {
+          await supabaseAdmin
+            .from('events')
+            .delete()
+            .eq('case_id', caseId)
+            .in('description', descriptionsToReplace);
+        }
       }
+
 
       // 2. Insert Document
       if (document) {

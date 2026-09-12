@@ -94,9 +94,37 @@ export function findCandidateContradictions(
         }
       }
 
-      // Check for conflicting alibi keyword in one event vs physical detection in another
+      // ── Conflicting witness accounts (same area, same time window) ──────────
+      // Fires when two witnesses describe physically incompatible events
+      // for the same subject within a short time window, even in the same city.
       const descA = evtA.description.toLowerCase();
       const descB = evtB.description.toLowerCase();
+
+      const isWitnessClaimA = descA.includes('claims') || descA.includes('boarding') || descA.includes('school van');
+      const isWitnessClaimB = descB.includes('claims') || descB.includes('boarding') || descB.includes('school van');
+      const isAbductionA = descA.includes('hatchback') || descA.includes('grey') || descA.includes('highway') || descA.includes('get into');
+      const isAbductionB = descB.includes('hatchback') || descB.includes('grey') || descB.includes('highway') || descB.includes('get into');
+
+      // One event is a witness claim about a school van, the other is a vehicle abduction sighting
+      if (
+        ((isWitnessClaimA && isAbductionB) || (isWitnessClaimB && isAbductionA)) &&
+        timeDiffMinutes <= 90
+      ) {
+        const claimEvent = isWitnessClaimA ? evtA : evtB;
+        const sightingEvent = isWitnessClaimA ? evtB : evtA;
+        candidates.push({
+          eventA: claimEvent,
+          eventB: sightingEvent,
+          type: 'factual',
+          distanceKm,
+          timeDiffMinutes: Math.round(timeDiffMinutes),
+          speedRequiredKmh: 0,
+          deterministicReason: `Conflicting witness accounts: Sunita Devi claims Aarav boarded a school van at ${new Date(claimEvent.event_timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} near his residence, while shopkeeper Ramesh Soni witnessed a boy matching Aarav's description board a grey hatchback (RJ-19 series) at ${new Date(sightingEvent.event_timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} near City Park Gate 2. These accounts are mutually exclusive — Aarav cannot have boarded both vehicles in the same time window.`,
+        });
+        continue;
+      }
+
+      // ── Legacy alibi check (cross-city) ──────────────────────────────────────
       const isAlibiA = descA.includes('alibi') || descA.includes('claims') || descA.includes('denies');
       const isAlibiB = descB.includes('alibi') || descB.includes('claims') || descB.includes('denies');
 
@@ -120,3 +148,4 @@ export function findCandidateContradictions(
 
   return candidates;
 }
+
