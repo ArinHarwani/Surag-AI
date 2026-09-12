@@ -113,7 +113,7 @@ export function getDemoPayload(
   const existingTitles = existingDocs.map((d) => d.title.toLowerCase().trim());
 
   // ── File 1: 01_meena_singh_complaint.txt ─────────────────────────────────
-  if (fn === '01_meena_singh_complaint.txt') {
+  if (fn.includes('meena')) {
     return {
       agencySlug: 'jodhpur',
       entities: [
@@ -149,7 +149,7 @@ export function getDemoPayload(
   }
 
   // ── File 2: 02_ramesh_soni_statement.txt ─────────────────────────────────
-  if (fn === '02_ramesh_soni_statement.txt') {
+  if (fn.includes('ramesh')) {
     return {
       agencySlug: 'jodhpur',
       entities: [
@@ -201,8 +201,8 @@ export function getDemoPayload(
 
   // ── File 3: 03_sunita_devi_statement.txt ─────────────────────────────────
   // Trigger contradiction immediately if File 4 already exists
-  if (fn === '03_sunita_devi_statement.txt') {
-    const schoolAlreadyIngested = existingTitles.includes('3.5_school_transport_log_14march.csv');
+  if (fn.includes('sunita')) {
+    const schoolAlreadyIngested = existingTitles.some((t) => t.includes('school_transport_log'));
     return {
       agencySlug: 'jodhpur',
       entities: [],
@@ -238,8 +238,8 @@ export function getDemoPayload(
 
   // ── File 4: 3.5_school_transport_log_14March.csv ──────────────────────────
   // Trigger contradiction immediately if File 3 already exists
-  if (fn === '3.5_school_transport_log_14march.csv' || fn.includes('school_transport_log')) {
-    const sunitaAlreadyIngested = existingTitles.includes('03_sunita_devi_statement.txt');
+  if (fn.includes('school_transport_log')) {
+    const sunitaAlreadyIngested = existingTitles.some((t) => t.includes('sunita'));
     return {
       agencySlug: 'jodhpur',
       entities: [],
@@ -274,8 +274,7 @@ export function getDemoPayload(
   }
 
   // ── File 5: Audio tip from Kota auto driver ───────────────────────────────
-  // Matched by prefix "4_" + audio mime/extension
-  if (fn.startsWith('4_') && (fileType === 'audio' || fn.endsWith('.mpeg') || fn.endsWith('.mp3') || fn.endsWith('.ogg'))) {
+  if (fn.includes('whatsapp') || fn.startsWith('4_') || fileType === 'audio') {
     const TRANSCRIPT =
       "I drive an auto near the Kota bus stand. Around six o'clock this evening I saw a man with a young boy, " +
       "the boy looked upset and wasn't talking much. I heard a child is missing from Jodhpur, so I thought I " +
@@ -324,8 +323,7 @@ export function getDemoPayload(
   }
 
   // ── File 7 (PRD File 7): car_cctv.jpeg — NH-52 Toll Plaza CCTV ──────────
-  // Matches "5_car_cctv.jpeg", "car_cctv.jpeg", or any name containing "car_cctv"
-  if (fn === 'car_cctv.jpeg' || fn === '5_car_cctv.jpeg' || fn.includes('car_cctv')) {
+  if (fn.includes('car_cctv')) {
     return {
       agencySlug: 'kota',
       entities: [
@@ -365,7 +363,7 @@ export function getDemoPayload(
   }
 
   // ── File 8 (PRD File 8): 6_vehicle_registration_RJ19CA4700.pdf ───────────
-  if (fn.includes('vehicle_registration') || fn === '6_vehicle_registration_rj19ca4700.pdf') {
+  if (fn.includes('vehicle_registration') || fn.includes('rj19ca4700')) {
     return {
       agencySlug: 'jodhpur',
       entities: [
@@ -402,7 +400,7 @@ export function getDemoPayload(
   }
 
   // ── File 9 (PRD File 9): 7_market.jpeg — HIGH PRIORITY ALERT ────────────
-  if (fn === '7_market.jpeg' || fn === 'market.jpeg' || fn.includes('market')) {
+  if (fn.includes('market')) {
     return {
       agencySlug: 'kota',
       highPriorityAlert: true,
@@ -441,7 +439,7 @@ export function getDemoPayload(
   }
 
   // ── File 10 (PRD File 10): 8_tweet.png — open-source / unverified ────────
-  if (fn === '8_tweet.png' || fn === 'tweet.png' || fn.includes('tweet')) {
+  if (fn.includes('tweet')) {
     return {
       agencySlug: 'jodhpur',
       eventTags: { source_type: 'open_source', trust_tier: 'unverified' },
