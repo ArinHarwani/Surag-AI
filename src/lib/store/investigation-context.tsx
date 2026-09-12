@@ -681,8 +681,10 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         const allRelationships = Array.from(
           new Map([...baseRels, ...newRelationshipRecords].map((r) => [r.id, r])).values()
         );
+        const limitedNewContradictions = newContradictionRecords.slice(0, Math.max(0, 2 - baseCons.length));
+        
         const allContradictions = Array.from(
-          new Map([...baseCons, ...newContradictionRecords].map((c) => [c.id, c])).values()
+          new Map([...baseCons, ...limitedNewContradictions].map((c) => [c.id, c])).values()
         );
 
         // ── SECTION 1 FIX: always mark document as 'processed' ────────────────
@@ -728,7 +730,7 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
               entities: newEntityRecords,
               events: newEventRecords,
               relationships: newRelationshipRecords,
-              contradictions: newContradictionRecords,
+              contradictions: limitedNewContradictions,
             },
           }),
         }).catch((e) => console.warn('Sync API ingest err:', e));
@@ -739,7 +741,7 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
           newEntities: newEntityRecords,
           newEvents: newEventRecords,
           newRelationships: newRelationshipRecords,
-          newContradictions: newContradictionRecords,
+          newContradictions: limitedNewContradictions,
           activeCaseId: caseId,
           activeCaseName: caseName,
           activeCaseFilingAgency: filingAgency,
