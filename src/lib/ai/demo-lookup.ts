@@ -360,7 +360,14 @@ export function getDemoPayload(
       "should call and tell someone. They were near platform three.";
     return {
       agencySlug: 'kota',
-      entities: [],
+      entities: [
+        {
+          id: stableId('entity|Auto Driver Tip Entity'),
+          type: 'person',
+          name: 'Auto-rickshaw Driver (Tip)',
+          attributes: { role: 'Informant', location: 'Kota Bus Stand' },
+        }
+      ],
       events: [
         {
           id: eventId(
@@ -483,7 +490,14 @@ export function getDemoPayload(
     return {
       agencySlug: 'kota',
       highPriorityAlert: true,
-      entities: [],
+      entities: [
+        {
+          id: stableId('entity|Market CCTV Sighting'),
+          type: 'location',
+          name: 'Kota Central Market (CCTV 7)',
+          attributes: { role: 'Sighting Location', type: 'Surveillance Camera' },
+        }
+      ],
       events: [
         {
           id: eventId(
