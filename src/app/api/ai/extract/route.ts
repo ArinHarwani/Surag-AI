@@ -10,11 +10,11 @@ const MAX_CONTENT_CHARS = 2500;
 const SARVAM_TIMEOUT_MS = 9000;
 const GEMINI_TIMEOUT_MS = 10000;
 
-// Gemini API key rotation via environment variables
+// Gemini API key rotation — prioritizing GEMINI_BACKUP_KEY_1 / GEMINI_BACKUP_KEY first
 const GEMINI_KEYS = [
-  process.env.GEMINI_API_KEY,
-  process.env.GEMINI_BACKUP_KEY,
+  process.env.GEMINI_BACKUP_KEY_1 || process.env.GEMINI_BACKUP_KEY,
   process.env.GEMINI_BACKUP_KEY_2,
+  process.env.GEMINI_API_KEY,
 ].filter(Boolean) as string[];
 
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {

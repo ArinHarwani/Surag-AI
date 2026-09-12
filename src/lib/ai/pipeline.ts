@@ -169,8 +169,17 @@ export async function extractDocumentIntelligence(
     }
   }
 
-  // 2. Try Gemini API if available
-  const geminiApiKey = process.env.GEMINI_API_KEY || (typeof window !== 'undefined' ? localStorage.getItem('GEMINI_API_KEY') : null);
+  // 2. Try Gemini API if available (Prioritizing GEMINI_BACKUP_KEY_1 / GEMINI_BACKUP_KEY)
+  const geminiApiKey =
+    process.env.GEMINI_BACKUP_KEY_1 ||
+    process.env.GEMINI_BACKUP_KEY ||
+    process.env.GEMINI_BACKUP_KEY_2 ||
+    process.env.GEMINI_API_KEY ||
+    (typeof window !== 'undefined'
+      ? localStorage.getItem('GEMINI_BACKUP_KEY_1') ||
+        localStorage.getItem('GEMINI_BACKUP_KEY') ||
+        localStorage.getItem('GEMINI_API_KEY')
+      : null);
   if (geminiApiKey) {
     try {
       const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${geminiApiKey}`;
