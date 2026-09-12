@@ -656,7 +656,7 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
           event_a_id: c.eventA.id,
           event_b_id: c.eventB.id,
           type: c.type,
-          description: `CONTRADICTION DETECTED between ${c.eventA.location_text} and ${c.eventB.location_text}. Distance: ${c.distanceKm}km, elapsed: ${c.timeDiffMinutes}min.`,
+          description: c.deterministicReason || `CONTRADICTION DETECTED between ${c.eventA.location_text} and ${c.eventB.location_text}. Distance: ${c.distanceKm}km, elapsed: ${c.timeDiffMinutes}min.`,
           status: 'flagged' as const,
           created_at: new Date().toISOString(),
         }));

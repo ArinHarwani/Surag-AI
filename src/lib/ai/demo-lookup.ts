@@ -202,7 +202,7 @@ export function getDemoPayload(
   // ── File 3: 03_sunita_devi_statement.txt ─────────────────────────────────
   // Trigger contradiction immediately if File 4 already exists
   if (fn.includes('sunita')) {
-    const schoolAlreadyIngested = existingTitles.some((t) => t.includes('school_transport_log'));
+    const schoolAlreadyIngested = existingTitles.some((t) => t.includes('school'));
     return {
       agencySlug: 'jodhpur',
       entities: [],
@@ -238,7 +238,7 @@ export function getDemoPayload(
 
   // ── File 4: 3.5_school_transport_log_14March.csv ──────────────────────────
   // Trigger contradiction immediately if File 3 already exists
-  if (fn.includes('school_transport_log')) {
+  if (fn.includes('school')) {
     const sunitaAlreadyIngested = existingTitles.some((t) => t.includes('sunita'));
     return {
       agencySlug: 'jodhpur',
@@ -323,7 +323,7 @@ export function getDemoPayload(
   }
 
   // ── File 7 (PRD File 7): car_cctv.jpeg — NH-52 Toll Plaza CCTV ──────────
-  if (fn.includes('car_cctv')) {
+  if (fn.includes('cctv')) {
     return {
       agencySlug: 'kota',
       entities: [
@@ -363,7 +363,7 @@ export function getDemoPayload(
   }
 
   // ── File 8 (PRD File 8): 6_vehicle_registration_RJ19CA4700.pdf ───────────
-  if (fn.includes('vehicle_registration') || fn.includes('rj19ca4700')) {
+  if (fn.includes('registration') || fn.includes('rj19ca4700')) {
     return {
       agencySlug: 'jodhpur',
       entities: [
