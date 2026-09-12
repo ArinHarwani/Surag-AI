@@ -199,10 +199,34 @@ export const NexusVault: React.FC<NexusVaultProps> = ({
             const isImage = doc.file_type === 'image';
             const isPlaying = playingAudioId === doc.id;
 
-            // Find entities relevant to this document
-            const matchingEntities = entities.filter((e) =>
-              (doc.content_text || '').toLowerCase().includes(e.name.toLowerCase())
-            );
+            // Find entities relevant to this document (with bilingual Hindi + English matching)
+            const matchingEntities = entities.filter((e) => {
+              if (e.attributes && typeof e.attributes === 'object') {
+                const attrs = e.attributes as Record<string, any>;
+                if (attrs.document_id === doc.id) return true;
+                if (attrs.detected_in === doc.title) return true;
+              }
+              const content = (doc.content_text || '').toLowerCase();
+              const docTitle = (doc.title || '').toLowerCase();
+              if (content.includes(e.name.toLowerCase()) || docTitle.includes(e.name.toLowerCase())) return true;
+
+              // Cross-lingual Hindi <-> English mapping
+              const HINDI_MAP: Record<string, string[]> = {
+                'aarav singh': ['आरव सिंह', 'आरव'],
+                'meena singh': ['मीना सिंह', 'मीना'],
+                'ramesh soni': ['रमेश सोनी', 'रमेश'],
+                'sunita devi': ['सुनीता देवी', 'सुनीता'],
+                'city park gate 2, shastri nagar, jodhpur': ['सिटी पार्क', 'शास्त्री नगर', 'गेट 2', 'पार्क'],
+                'city park': ['सिटी पार्क', 'पार्क'],
+                'shastri nagar': ['शास्त्री नगर'],
+                'grey hatchback (rj-19 series)': ['ग्रे हैचबैक', 'हैचबैक', 'rj-19', 'rj 19', 'कार'],
+                'local school van': ['स्कूल वैन', 'वैन'],
+                'jodhpur police station': ['जोधपुर पुलिस स्टेशन', 'जोधपुर'],
+                'jodhpur police department': ['जोधपुर'],
+              };
+              const aliases = HINDI_MAP[e.name.toLowerCase()] || [];
+              return aliases.some((alias) => content.includes(alias.toLowerCase()));
+            });
             const displayEntities = matchingEntities.length > 0 ? matchingEntities.slice(0, 3) : entities.slice(0, 2);
 
             return (

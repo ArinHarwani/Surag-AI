@@ -489,7 +489,11 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
             agency_id: agency.id,
             type: raw.type,
             name: raw.name,
-            attributes: raw.attributes,
+            attributes: {
+              ...(raw.attributes || {}),
+              document_id: docId,
+              detected_in: docData.title,
+            },
             first_seen_at: new Date().toISOString(),
           }));
 
