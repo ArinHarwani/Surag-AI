@@ -98,6 +98,8 @@ interface InvestigationContextType extends CaseState {
   isLiveSyncActive: boolean;
   highPriorityAlert: { message: string; location: string; timestamp: string } | null;
   dismissHighPriorityAlert: () => void;
+  secondaryAlert: { targetAgency: AgencySlug; title: string; message: string } | null;
+  dismissSecondaryAlert: () => void;
 
   // Derived: connection requests relevant to this portal
   pendingIncomingRequests: ConnectionRequest[];
@@ -182,6 +184,8 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
   const [isLiveSyncActive, setIsLiveSyncActive] = useState(true);
   const [highPriorityAlert, setHighPriorityAlert] = useState<{ message: string; location: string; timestamp: string } | null>(null);
   const dismissHighPriorityAlert = useCallback(() => setHighPriorityAlert(null), []);
+  const [secondaryAlert, setSecondaryAlert] = useState<{ targetAgency: AgencySlug; title: string; message: string } | null>(null);
+  const dismissSecondaryAlert = useCallback(() => setSecondaryAlert(null), []);
 
   // ── Persist & hydrate ──────────────────────────────────────────────────────
   const persistState = useCallback((s: CaseState) => {
@@ -425,6 +429,12 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
           message: payload.message,
           location: payload.location,
           timestamp: payload.timestamp,
+        });
+      } else if (eventName === 'SECONDARY_ALERT') {
+        setSecondaryAlert({
+          targetAgency: payload.targetAgency,
+          title: payload.title,
+          message: payload.message,
         });
       }
     });
@@ -747,6 +757,20 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
           });
         }
 
+        // ── SECONDARY DELAYED ALERT (File 5 audio: fires 10 s after upload) ─────
+        // Published inside the setState callback so the payload is captured
+        // in closure correctly. setTimeout runs outside React batching — safe.
+        if (isDemoFile && demoPayload.secondaryAlert) {
+          const sa = demoPayload.secondaryAlert;
+          setTimeout(() => {
+            realtimeRelay.publish('SECONDARY_ALERT', {
+              targetAgency: sa.targetAgency,
+              title: sa.title,
+              message: sa.message,
+            });
+          }, sa.delayMs);
+        }
+
         return next;
       });
 
@@ -972,6 +996,8 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         isLiveSyncActive,
         highPriorityAlert,
         dismissHighPriorityAlert,
+        secondaryAlert,
+        dismissSecondaryAlert,
         pendingIncomingRequests: pendingIncomingRequests(activeAgency),
         acceptedLinkedAgencies,
         setActiveAgency,

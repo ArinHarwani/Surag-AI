@@ -55,6 +55,8 @@ export const NexusShell: React.FC<NexusShellProps> = ({
     clearAllCaseData,
     highPriorityAlert,
     dismissHighPriorityAlert,
+    secondaryAlert,
+    dismissSecondaryAlert,
   } = useInvestigation();
 
   // Set portal-scoped active agency on mount
@@ -299,6 +301,67 @@ export const NexusShell: React.FC<NexusShellProps> = ({
           onClose={() => setIsRequestsPanelOpen(false)}
           currentPortalAgency={scopedAgency}
         />
+      )}
+
+      {/* SECONDARY TOAST — Kota-only car notification, fires 10 s after audio upload */}
+      {secondaryAlert && secondaryAlert.targetAgency === scopedAgency && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            width: '360px',
+            background: 'linear-gradient(135deg, #1c1917 0%, #292524 100%)',
+            border: '1px solid #d97706',
+            borderLeft: '4px solid #d97706',
+            borderRadius: '8px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(217,119,6,0.2)',
+            zIndex: 9998,
+            animation: 'slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+            fontFamily: 'monospace',
+          }}
+        >
+          <style>{`
+            @keyframes slideInRight {
+              from { transform: translateX(120%); opacity: 0; }
+              to   { transform: translateX(0);    opacity: 1; }
+            }
+          `}</style>
+          <div style={{ padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', flex: 1 }}>
+                <span style={{ fontSize: '22px', lineHeight: 1, marginTop: '2px' }}>🚗</span>
+                <div>
+                  <div style={{ color: '#fbbf24', fontWeight: 700, fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>
+                    {secondaryAlert.title}
+                  </div>
+                  <div style={{ color: '#e7e5e4', fontSize: '13px', lineHeight: 1.5 }}>
+                    {secondaryAlert.message}
+                  </div>
+                  <div style={{ color: '#78716c', fontSize: '11px', marginTop: '8px', letterSpacing: '0.05em' }}>
+                    KOTA CID · INTELLIGENCE UNIT · AUTO-CLASSIFIED
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={dismissSecondaryAlert}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #44403c',
+                  color: '#a8a29e',
+                  borderRadius: '4px',
+                  padding: '2px 8px',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                  fontFamily: 'monospace',
+                }}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

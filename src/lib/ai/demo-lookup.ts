@@ -84,6 +84,16 @@ export interface DemoPayload {
   highPriorityAlert?: boolean;
   /** Extra tags applied to all events from this file (e.g. trust_tier for tweet) */
   eventTags?: Record<string, string>;
+  /**
+   * If set, fires a secondary toast notification on a specific portal after a delay.
+   * Used for the audio tip → 10-second car-linked notification on Kota portal.
+   */
+  secondaryAlert?: {
+    delayMs: number;
+    targetAgency: AgencySlug;
+    title: string;
+    message: string;
+  };
 }
 
 /**
@@ -304,6 +314,12 @@ export function getDemoPayload(
         },
       ],
       contradictions: [],
+      secondaryAlert: {
+        delayMs: 10000,
+        targetAgency: 'kota',
+        title: '🚗 Vehicle Alert — Kota CID',
+        message: 'A grey hatchback (RJ19 series) linked to this case has been spotted near Kota. Vehicle last seen heading toward the bus stand area. Cross-check with NH-52 toll records immediately.',
+      },
     };
   }
 
