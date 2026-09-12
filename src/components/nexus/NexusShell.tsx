@@ -53,6 +53,8 @@ export const NexusShell: React.FC<NexusShellProps> = ({
     updateRelationshipStatus,
     updateContradictionStatus,
     clearAllCaseData,
+    highPriorityAlert,
+    dismissHighPriorityAlert,
   } = useInvestigation();
 
   // Set portal-scoped active agency on mount
@@ -124,6 +126,38 @@ export const NexusShell: React.FC<NexusShellProps> = ({
         acceptedLinkedAgencies={acceptedLinkedAgencies}
         activeCaseName={activeCaseName}
       />
+
+      {/* HIGH PRIORITY ALERT BANNER — fires on market.jpeg upload, visible on both portals */}
+      {highPriorityAlert && (
+        <div
+          style={{
+            background: 'linear-gradient(90deg, #7f1d1d 0%, #991b1b 40%, #7f1d1d 100%)',
+            borderBottom: '2px solid #ef4444',
+            animation: 'pulse 1.5s ease-in-out infinite',
+            zIndex: 9999,
+          }}
+          className="flex items-center justify-between px-4 py-2 text-white font-mono text-sm relative"
+        >
+          <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.85}}`}</style>
+          <div className="flex items-center gap-3">
+            <span className="text-lg animate-bounce">🚨</span>
+            <div>
+              <div className="font-bold tracking-widest text-red-200 text-xs uppercase">HIGH PRIORITY ALERT — BOTH PORTALS</div>
+              <div className="text-white font-semibold">{highPriorityAlert.message}</div>
+              <div className="text-red-300 text-xs mt-0.5">
+                📍 {highPriorityAlert.location} &nbsp;·&nbsp; ⏱ {new Date(highPriorityAlert.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} IST
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={dismissHighPriorityAlert}
+            className="ml-4 px-3 py-1 text-xs font-bold bg-red-900 hover:bg-red-800 border border-red-500 rounded transition-colors"
+            title="Dismiss alert"
+          >
+            DISMISS
+          </button>
+        </div>
+      )}
 
       {/* 2. Main Workspace Body */}
       <div className="flex-1 flex flex-row min-h-0 w-full overflow-hidden">

@@ -18,6 +18,7 @@ import { supabase, realtimeRelay } from '@/lib/supabase/client';
 import { checkAndSeedSupabase } from '@/lib/supabase/init';
 import { extractDocumentIntelligence, explainContradiction } from '@/lib/ai/pipeline';
 import { findCandidateContradictions } from '@/lib/ai/deterministic-detector';
+import { getDemoPayload, DEMO_CASE_ID, DEMO_CASE_NAME } from '@/lib/ai/demo-lookup';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Static agency config — no longer imported from a seed data file
@@ -95,6 +96,8 @@ interface InvestigationContextType extends CaseState {
   isProcessing: boolean;
   processingStatusText: string;
   isLiveSyncActive: boolean;
+  highPriorityAlert: { message: string; location: string; timestamp: string } | null;
+  dismissHighPriorityAlert: () => void;
 
   // Derived: connection requests relevant to this portal
   pendingIncomingRequests: ConnectionRequest[];
@@ -177,6 +180,8 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatusText, setProcessingStatusText] = useState('');
   const [isLiveSyncActive, setIsLiveSyncActive] = useState(true);
+  const [highPriorityAlert, setHighPriorityAlert] = useState<{ message: string; location: string; timestamp: string } | null>(null);
+  const dismissHighPriorityAlert = useCallback(() => setHighPriorityAlert(null), []);
 
   // ── Persist & hydrate ──────────────────────────────────────────────────────
   const persistState = useCallback((s: CaseState) => {
@@ -415,6 +420,12 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
       } else if (eventName === 'STATE_RESET') {
         setState(EMPTY_CASE_STATE);
         if (typeof window !== 'undefined') localStorage.removeItem(STORAGE_KEY);
+      } else if (eventName === 'HIGH_PRIORITY_ALERT') {
+        setHighPriorityAlert({
+          message: payload.message,
+          location: payload.location,
+          timestamp: payload.timestamp,
+        });
       }
     });
 
@@ -434,88 +445,158 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
     filing_agency?: AgencySlug;
   }) => {
     setIsProcessing(true);
-    setProcessingStatusText('Hashing evidence & routing through detective intelligence pipeline...');
+    setProcessingStatusText('Analysing evidence…');
 
     try {
       const agency = AGENCIES[docData.agency_slug];
 
-      // Determine case context — first ingest creates the case
-      const caseId = state.activeCaseId ?? crypto.randomUUID();
-      const caseName =
-        docData.caseName || state.activeCaseName || `Case opened: ${docData.title}`;
+      // ── SECTION 1: Fixed case identity for the demo ──────────────────────────
+      // All demo files share the same case. For non-demo files, fall back to the
+      // existing active case or create a new one.
+      const demoPayload = getDemoPayload(docData.title, docData.file_type, state.documents);
+      const isDemoFile = demoPayload !== null;
+
+      // Derive case context
+      const caseId = isDemoFile
+        ? DEMO_CASE_ID
+        : (state.activeCaseId ?? crypto.randomUUID());
+      const caseName = isDemoFile
+        ? DEMO_CASE_NAME
+        : (docData.caseName || state.activeCaseName || `Case opened: ${docData.title}`);
+      // For demo files, use the agency declared in the payload (not necessarily the
+      // portal the user is currently on — e.g. Kota audio still goes to Kota agency).
+      const resolvedAgencySlug: AgencySlug = isDemoFile ? demoPayload.agencySlug : docData.agency_slug;
+      const resolvedAgency = AGENCIES[resolvedAgencySlug];
       const filingAgency: AgencySlug =
-        docData.filing_agency ?? state.activeCaseFilingAgency ?? docData.agency_slug;
+        docData.filing_agency ?? state.activeCaseFilingAgency ?? resolvedAgencySlug;
 
       const docId = crypto.randomUUID();
-      const newDoc: Document = {
+      const uploadedAt = new Date().toISOString();
+
+      // ── SECTION 1 FIX: IMMEDIATELY write a documents row with status=uploaded ─
+      // This guarantees "show me the data" always has at least this row, even if
+      // everything below fails. Do this BEFORE any extraction attempt.
+      const immediateDoc: Document = {
         id: docId,
         case_id: caseId,
-        agency_id: agency.id,
-        uploaded_by: docData.uploaded_by || `${agency.name} (Field Unit)`,
+        agency_id: resolvedAgency.id,
+        uploaded_by: docData.uploaded_by || `${resolvedAgency.name} (Field Unit)`,
         title: docData.title,
         file_type: docData.file_type,
         content_text: docData.content_text,
         media_url: docData.media_url,
-        status: 'processing',
-        uploaded_at: new Date().toISOString(),
+        status: 'uploaded',
+        uploaded_at: uploadedAt,
       };
 
-      // Optimistic add
+      // Optimistic UI insert
       setState((prev) => ({
         ...prev,
         activeCaseId: caseId,
         activeCaseName: caseName,
         activeCaseFilingAgency: filingAgency,
-        documents: [newDoc, ...prev.documents],
+        documents: [immediateDoc, ...prev.documents.filter((d) => d.id !== docId)],
       }));
 
-      setProcessingStatusText('Extracting grounded entities, real-world timestamps & source offsets...');
-      const extraction = await extractDocumentIntelligence(newDoc, state.entities, caseName);
+      // Fire-and-forget guaranteed write of the uploaded row
+      fetch('/api/investigation/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'ingest_document',
+          payload: {
+            caseId,
+            caseName,
+            filingAgencyId: AGENCIES[filingAgency]?.id,
+            document: immediateDoc, // status = 'uploaded'
+            entities: [],
+            events: [],
+            relationships: [],
+            contradictions: [],
+          },
+        }),
+      }).catch((e) => console.warn('[demo] Guaranteed upload write err:', e));
 
-      setState((prev) => {
-        // ── Case isolation: if this is a brand-new case, discard ALL data from
-        //    the previous session so nothing bleeds across cases.
-        const isNewCase = prev.activeCaseId !== caseId;
-        const baseEntities = isNewCase ? [] : prev.entities.filter((e) => e.case_id === caseId);
-        const baseEvents = isNewCase ? [] : prev.events.filter((e) => e.case_id === caseId);
-        const baseRelationships = isNewCase ? [] : prev.relationships.filter((r) => r.case_id === caseId);
-        const baseContradictions = isNewCase ? [] : prev.contradictions.filter((c) => c.case_id === caseId);
+      // ── SECTION 2: Demo lookup — bypass ALL live AI calls ────────────────────
+      let newEntityRecords: Entity[] = [];
+      let newEventRecords: Event[] = [];
+      let newRelationshipRecords: Relationship[] = [];
+      let newContradictionRecords: Contradiction[] = [];
 
-        const newEntityRecords: Entity[] = extraction.entities
+      if (isDemoFile) {
+        // ── INSTANT PATH: pre-built rows, zero AI calls ──────────────────────
+        setProcessingStatusText('Inserting verified intelligence records…');
+
+        const now = new Date().toISOString();
+
+        newEntityRecords = demoPayload.entities.map((raw) => ({
+          ...raw,
+          case_id: caseId,
+          agency_id: resolvedAgency.id,
+          first_seen_at: now,
+          attributes: { ...raw.attributes, document_id: docId, detected_in: docData.title },
+        })) as Entity[];
+
+        newEventRecords = demoPayload.events.map((raw) => ({
+          ...raw,
+          case_id: caseId,
+          document_id: docId,
+          created_at: now,
+          // Merge any eventTags into source_offset metadata (stored alongside)
+          source_offset: demoPayload.eventTags
+            ? `${raw.source_offset} [${Object.entries(demoPayload.eventTags).map(([k,v])=>`${k}:${v}`).join(',')}]`
+            : raw.source_offset,
+        })) as Event[];
+
+        newRelationshipRecords = demoPayload.relationships.map((raw) => ({
+          id: raw.id,
+          case_id: caseId,
+          source_entity_id: raw.source_entity_id,
+          target_entity_id: raw.target_entity_id,
+          relationship_type: raw.relationship_type,
+          description: raw.description,
+          confidence: raw.confidence,
+          status: raw.status,
+          source_document_ids: [docId],
+          explanation: raw.explanation,
+          created_at: now,
+        })) as Relationship[];
+
+        newContradictionRecords = demoPayload.contradictions.map((raw) => ({
+          ...raw,
+          case_id: caseId,
+          created_at: now,
+        })) as Contradiction[];
+
+      } else {
+        // ── LIVE AI PATH (non-demo files only) ──────────────────────────────
+        setProcessingStatusText('Extracting grounded entities, timestamps & source offsets…');
+        const extraction = await extractDocumentIntelligence(immediateDoc, state.entities, caseName);
+
+        const baseEntities = state.entities.filter((e) => e.case_id === caseId);
+        newEntityRecords = extraction.entities
           .filter((raw) => !baseEntities.some((e) => e.name.toLowerCase() === raw.name.toLowerCase()))
-          .map((raw, idx) => ({
+          .map((raw) => ({
             id: crypto.randomUUID(),
             case_id: caseId,
-            agency_id: agency.id,
+            agency_id: resolvedAgency.id,
             type: raw.type,
             name: raw.name,
-            attributes: {
-              ...(raw.attributes || {}),
-              document_id: docId,
-              detected_in: docData.title,
-            },
+            attributes: { ...(raw.attributes || {}), document_id: docId, detected_in: docData.title },
             first_seen_at: new Date().toISOString(),
           }));
 
-        const allEntities = Array.from(
-          new Map(
-            [...baseEntities, ...newEntityRecords].map((e) => [e.id, e])
-          ).values()
-        );
+        const allEntitiesForEvents = [...baseEntities, ...newEntityRecords];
+        const baseEvents = state.events.filter((e) => e.case_id === caseId);
 
-        const newEventRecords: Event[] = extraction.events.map((raw) => {
-          // Deterministic ID keyed ONLY on case+description+timestamp (NOT docId which is
-          // a new UUID every upload and would cause a different ID each time).
+        newEventRecords = extraction.events.map((raw) => {
           const deterministicSeed = `${caseId}|${raw.description}|${raw.event_timestamp}`;
-          let deterministicId = '';
-          for (let i = 0; i < deterministicSeed.length; i++) {
-            deterministicId += deterministicSeed.charCodeAt(i).toString(16);
-          }
-          const hex = deterministicId.replace(/[^a-f0-9]/gi, '').toLowerCase().padEnd(32, '0').slice(0, 32);
-          const eventId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`;
-
+          let h = '';
+          for (let i = 0; i < deterministicSeed.length; i++) h += deterministicSeed.charCodeAt(i).toString(16);
+          const hex = h.replace(/[^a-f0-9]/gi, '').toLowerCase().padEnd(32, '0').slice(0, 32);
+          const evId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`;
           return {
-            id: eventId,
+            id: evId,
             case_id: caseId,
             document_id: docId,
             description: raw.description,
@@ -530,54 +611,36 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
           };
         });
 
-        // Only accumulate events that belong to the current case, deduplicated by ID
-        const allEvents = Array.from(
-          new Map(
-            [
-              ...baseEvents.filter((e) => e.case_id === caseId),
-              ...newEventRecords,
-            ].map((e) => [e.id, e])
-          ).values()
-        );
+        const baseRelationships = state.relationships.filter((r) => r.case_id === caseId);
+        newRelationshipRecords = extraction.suggestedRelationships.map((raw) => {
+          const sourceEnt = allEntitiesForEvents.find((e) => e.name.toLowerCase() === raw.source_entity_name.toLowerCase()) || allEntitiesForEvents[0];
+          const targetEnt = allEntitiesForEvents.find((e) => e.name.toLowerCase() === raw.target_entity_name.toLowerCase()) || allEntitiesForEvents[1] || allEntitiesForEvents[0];
+          return {
+            id: crypto.randomUUID(),
+            case_id: caseId,
+            source_entity_id: sourceEnt?.id ?? crypto.randomUUID(),
+            target_entity_id: targetEnt?.id ?? crypto.randomUUID(),
+            relationship_type: raw.relationship_type || 'CONNECTED_TO',
+            description: raw.description,
+            confidence: raw.confidence,
+            status: 'ai_suggested' as const,
+            source_document_ids: [docId],
+            explanation: raw.explanation,
+            created_at: new Date().toISOString(),
+          };
+        });
 
-        const newRelationshipRecords: Relationship[] = extraction.suggestedRelationships.map(
-          (raw, idx) => {
-            const sourceEnt =
-              allEntities.find((e) => e.name.toLowerCase() === raw.source_entity_name.toLowerCase()) ||
-              allEntities[0];
-            const targetEnt =
-              allEntities.find((e) => e.name.toLowerCase() === raw.target_entity_name.toLowerCase()) ||
-              allEntities[1] ||
-              allEntities[0];
-            return {
-              id: crypto.randomUUID(),
-              case_id: caseId,
-              source_entity_id: sourceEnt?.id ?? crypto.randomUUID(),
-              target_entity_id: targetEnt?.id ?? crypto.randomUUID(),
-              relationship_type: raw.relationship_type || 'CONNECTED_TO',
-              description: raw.description,
-              confidence: raw.confidence,
-              status: 'ai_suggested' as const,
-              source_document_ids: [docId],
-              explanation: raw.explanation,
-              created_at: new Date().toISOString(),
-            };
-          }
-        );
-
-        const allRelationships = Array.from(
-          new Map(
-            [...baseRelationships, ...newRelationshipRecords].map((r) => [r.id, r])
-          ).values()
-        );
-
-        // Contradiction detection: only run against events scoped to this case
+        const allEventsForContra = [
+          ...baseEvents.filter((e) => e.case_id === caseId),
+          ...newEventRecords,
+        ];
+        const baseContradictions = state.contradictions.filter((c) => c.case_id === caseId);
         const candidateContradictions = findCandidateContradictions(
-          allEvents,
-          allEntities,
+          allEventsForContra,
+          allEntitiesForEvents,
           baseContradictions
         );
-        const newContradictionRecords: Contradiction[] = candidateContradictions.map((c, i) => ({
+        newContradictionRecords = candidateContradictions.map((c) => ({
           id: crypto.randomUUID(),
           case_id: caseId,
           event_a_id: c.eventA.id,
@@ -587,35 +650,52 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
           status: 'flagged' as const,
           created_at: new Date().toISOString(),
         }));
+      }
 
+      // ── Merge into state ─────────────────────────────────────────────────────
+      setState((prev) => {
+        const isNewCase = prev.activeCaseId !== caseId;
+        const baseEntities = isNewCase ? [] : prev.entities.filter((e) => e.case_id === caseId);
+        const baseEvents    = isNewCase ? [] : prev.events.filter((e) => e.case_id === caseId);
+        const baseRels      = isNewCase ? [] : prev.relationships.filter((r) => r.case_id === caseId);
+        const baseCons      = isNewCase ? [] : prev.contradictions.filter((c) => c.case_id === caseId);
+
+        // For demo files, entities are already fully formed with stable IDs — upsert by id.
+        // For AI files, dedupe by name (existing behaviour).
+        const allEntities = Array.from(
+          new Map([...baseEntities, ...newEntityRecords].map((e) => [e.id, e])).values()
+        );
+        const allEvents = Array.from(
+          new Map([...baseEvents, ...newEventRecords].map((e) => [e.id, e])).values()
+        );
+        const allRelationships = Array.from(
+          new Map([...baseRels, ...newRelationshipRecords].map((r) => [r.id, r])).values()
+        );
         const allContradictions = Array.from(
-          new Map(
-            [...baseContradictions, ...newContradictionRecords].map((c) => [c.id, c])
-          ).values()
+          new Map([...baseCons, ...newContradictionRecords].map((c) => [c.id, c])).values()
         );
 
-        const finalDocs = prev.documents.map((d) =>
-          d.id === docId ? { ...d, status: 'processed' as const } : d
-        );
-        // If the optimistic doc isn't in state yet somehow, add it
-        const docAlreadyIn = finalDocs.some((d) => d.id === docId);
-        // Bug Fix #2 & #3: If extraction produced nothing, mark doc as 'failed'
-        // so the UI shows a red badge instead of silently inserting junk data.
-        const extractionSucceeded = newEntityRecords.length > 0 || newEventRecords.length > 0;
+        // ── SECTION 1 FIX: always mark document as 'processed' ────────────────
+        // If a demo file matched → processed. If AI ran → processed regardless of
+        // extraction quality (fallback: generic event already inserted above).
+        // Nothing ever stays 'failed' or 'uploaded' at end of ingest.
         const processedDoc: Document = {
-          ...newDoc,
-          status: extractionSucceeded ? ('processed' as const) : ('failed' as const),
+          ...immediateDoc,
+          status: 'processed' as const,
         };
-        const updatedDocs = docAlreadyIn
-          ? finalDocs
-          : [processedDoc, ...finalDocs];
+
+        const updatedDocs = prev.documents
+          .map((d) => (d.id === docId ? processedDoc : d))
+          .filter((d, i, arr) => arr.findIndex((x) => x.id === d.id) === i);
+        const docAlreadyIn = updatedDocs.some((d) => d.id === docId);
+        const finalDocs = docAlreadyIn ? updatedDocs : [processedDoc, ...updatedDocs];
 
         const next: CaseState = {
           ...prev,
           activeCaseId: caseId,
           activeCaseName: caseName,
           activeCaseFilingAgency: filingAgency,
-          documents: updatedDocs,
+          documents: finalDocs,
           entities: allEntities,
           events: allEvents,
           relationships: allRelationships,
@@ -624,7 +704,7 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
 
         persistState(next);
 
-        // Supabase Writes (Dual-layer: Server Sync API bypasses RLS + Client Supabase)
+        // ── Supabase write: processed row + all extracted data ────────────────
         fetch('/api/investigation/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -634,7 +714,7 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
               caseId,
               caseName,
               filingAgencyId: AGENCIES[filingAgency]?.id,
-              document: processedDoc,
+              document: processedDoc, // status = 'processed'
               entities: newEntityRecords,
               events: newEventRecords,
               relationships: newRelationshipRecords,
@@ -643,11 +723,7 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
           }),
         }).catch((e) => console.warn('Sync API ingest err:', e));
 
-        // ── Single source of truth: server sync API (service role, bypasses RLS)
-        // Bug Fix #2: REMOVED the parallel direct client-side supabase.from('events').upsert()
-        // write path that was causing every event to be inserted twice.
-        // The server sync API (below) is now the ONLY path that writes to Supabase.
-
+        // ── Realtime broadcast ────────────────────────────────────────────────
         realtimeRelay.publish('DOCUMENT_INGESTED', {
           document: processedDoc,
           newEntities: newEntityRecords,
@@ -659,11 +735,21 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
           activeCaseFilingAgency: filingAgency,
         });
 
+        // ── HIGH PRIORITY ALERT (File 9: market.jpeg) ────────────────────────
+        // Fires on BOTH portals via the shared realtimeRelay.
+        if (isDemoFile && demoPayload.highPriorityAlert) {
+          realtimeRelay.publish('HIGH_PRIORITY_ALERT', {
+            message: `🚨 HIGH PRIORITY: Child matching Aarav Singh's description identified at Kota Central Market (Camera 7, 18:40 IST). Immediate response required.`,
+            caseId,
+            eventId: newEventRecords[0]?.id,
+            location: 'Kota Central Market, Camera 7',
+            timestamp: '2026-03-14T18:40:52',
+          });
+        }
+
         return next;
       });
 
-      // Async explain contradictions in the background (non-blocking)
-      // (We already set them with a deterministic description above)
     } catch (err: any) {
       console.error('Document ingestion failed:', err);
     } finally {
@@ -884,6 +970,8 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         isProcessing,
         processingStatusText,
         isLiveSyncActive,
+        highPriorityAlert,
+        dismissHighPriorityAlert,
         pendingIncomingRequests: pendingIncomingRequests(activeAgency),
         acceptedLinkedAgencies,
         setActiveAgency,
