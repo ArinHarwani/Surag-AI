@@ -161,7 +161,7 @@ export function getDemoPayload(
           relationship_type: 'mother of',
           description: 'Meena Singh is the mother of missing child Aarav Singh.',
           confidence: 1.0,
-          status: 'verified',
+          status: 'confirmed',
           explanation: 'Stated explicitly in FIR complaint.',
         }
       ],
@@ -215,7 +215,7 @@ export function getDemoPayload(
           relationship_type: 'witnessed by',
           description: 'Aarav Singh was witnessed entering a vehicle by Ramesh Soni.',
           confidence: 0.9,
-          status: 'verified',
+          status: 'confirmed',
           explanation: 'Official witness statement.',
         },
         {
@@ -307,7 +307,7 @@ export function getDemoPayload(
           relationship_type: 'witnessed by',
           description: 'Aarav Singh was witnessed boarding a school van by Sunita Devi.',
           confidence: 0.9,
-          status: 'verified',
+          status: 'confirmed',
           explanation: 'Official witness statement.',
         },
       ],
