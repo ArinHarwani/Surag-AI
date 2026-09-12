@@ -43,6 +43,8 @@ const ENT_AARAV   = entityId('Aarav Singh');
 const ENT_MEENA   = entityId('Meena Singh');
 const ENT_VEHICLE = entityId('Grey Hatchback Vehicle (Maruti Suzuki WagonR, partial plate RJ19...)');
 const ENT_VIKRAM  = entityId('Vikram Rathore');
+const ENT_RAMESH  = entityId('Ramesh Soni');
+const ENT_SUNITA  = entityId('Sunita Devi');
 
 // Named event ID constants — needed for the cross-file contradiction trigger
 const EVT_SUNITA_TS = '2026-03-14T16:45:00';
@@ -151,7 +153,18 @@ export function getDemoPayload(
           confidence: 0.99,
         },
       ],
-      relationships: [],
+      relationships: [
+        {
+          id: stableId('rel|meena|aarav|mother_of'),
+          source_entity_id: ENT_MEENA,
+          target_entity_id: ENT_AARAV,
+          relationship_type: 'mother of',
+          description: 'Meena Singh is the mother of missing child Aarav Singh.',
+          confidence: 1.0,
+          status: 'verified',
+          explanation: 'Stated explicitly in FIR complaint.',
+        }
+      ],
       contradictions: [],
     };
   }
@@ -162,6 +175,12 @@ export function getDemoPayload(
     return {
       agencySlug: 'jodhpur',
       entities: [
+        {
+          id: ENT_RAMESH,
+          type: 'person',
+          name: 'Ramesh Soni',
+          attributes: { role: 'Eyewitness', occupation: 'Shopkeeper' },
+        },
         {
           id: ENT_VEHICLE,
           type: 'vehicle',
@@ -189,6 +208,16 @@ export function getDemoPayload(
         },
       ],
       relationships: [
+        {
+          id: stableId('rel|aarav|ramesh|witnessed_by'),
+          source_entity_id: ENT_AARAV,
+          target_entity_id: ENT_RAMESH,
+          relationship_type: 'witnessed by',
+          description: 'Aarav Singh was witnessed entering a vehicle by Ramesh Soni.',
+          confidence: 0.9,
+          status: 'verified',
+          explanation: 'Official witness statement.',
+        },
         {
           id: stableId('rel|aarav|vehicle|possibly traveled in'),
           source_entity_id: ENT_AARAV,
@@ -248,7 +277,14 @@ export function getDemoPayload(
 
     return {
       agencySlug: 'jodhpur',
-      entities: [],
+      entities: [
+        {
+          id: ENT_SUNITA,
+          type: 'person',
+          name: 'Sunita Devi',
+          attributes: { role: 'Eyewitness', relation: 'neighbor' },
+        },
+      ],
       events: [
         {
           id: EVT_SUNITA_ID,
@@ -263,7 +299,18 @@ export function getDemoPayload(
           confidence: 0.95,
         },
       ],
-      relationships: [],
+      relationships: [
+        {
+          id: stableId('rel|aarav|sunita|witnessed_by'),
+          source_entity_id: ENT_AARAV,
+          target_entity_id: ENT_SUNITA,
+          relationship_type: 'witnessed by',
+          description: 'Aarav Singh was witnessed boarding a school van by Sunita Devi.',
+          confidence: 0.9,
+          status: 'verified',
+          explanation: 'Official witness statement.',
+        },
+      ],
       contradictions,
     };
   }
