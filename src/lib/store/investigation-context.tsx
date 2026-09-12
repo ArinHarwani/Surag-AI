@@ -748,13 +748,15 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         // ── HIGH PRIORITY ALERT (File 9: market.jpeg) ────────────────────────
         // Fires on BOTH portals via the shared realtimeRelay.
         if (isDemoFile && demoPayload.highPriorityAlert) {
-          realtimeRelay.publish('HIGH_PRIORITY_ALERT', {
+          const alertPayload = {
             message: `🚨 HIGH PRIORITY: Child matching Aarav Singh's description identified at Kota Central Market (Camera 7, 18:40 IST). Immediate response required.`,
             caseId,
             eventId: newEventRecords[0]?.id,
             location: 'Kota Central Market, Camera 7',
             timestamp: '2026-03-14T18:40:52',
-          });
+          };
+          realtimeRelay.publish('HIGH_PRIORITY_ALERT', alertPayload);
+          setHighPriorityAlert(alertPayload); // Local UI update for sender
         }
 
         // ── SECONDARY DELAYED ALERT (File 5 audio: fires 10 s after upload) ─────
@@ -763,11 +765,13 @@ export function InvestigationProvider({ children }: { children: React.ReactNode 
         if (isDemoFile && demoPayload.secondaryAlert) {
           const sa = demoPayload.secondaryAlert;
           setTimeout(() => {
-            realtimeRelay.publish('SECONDARY_ALERT', {
+            const alertPayload = {
               targetAgency: sa.targetAgency,
               title: sa.title,
               message: sa.message,
-            });
+            };
+            realtimeRelay.publish('SECONDARY_ALERT', alertPayload);
+            setSecondaryAlert(alertPayload); // Local UI update for sender
           }, sa.delayMs);
         }
 
