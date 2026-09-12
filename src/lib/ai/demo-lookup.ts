@@ -55,6 +55,11 @@ const EVT_SCHOOL_ID = eventId(
   "School transport system logs Aarav Singh as Absent - Not Boarded for Route 4 pickup window",
   EVT_SCHOOL_TS
 );
+const EVT_RAMESH_TS = '2026-03-14T16:22:00';
+const EVT_RAMESH_ID = eventId(
+  'Boy in blue t-shirt seen entering grey hatchback near City Park Gate 2, vehicle departed north toward highway',
+  EVT_RAMESH_TS
+);
 
 // ── Contradiction text (single source of truth) ───────────────────────────────
 const CONTRADICTION_DESC =
@@ -62,6 +67,9 @@ const CONTRADICTION_DESC =
   "16:45 on 14 March. The school's own transport log for the same route and time window records him as " +
   "'Absent - Not Boarded'. These two records cannot both be true. Source citations: " +
   "[03_sunita_devi_statement.txt] vs [3.5_school_transport_log_14March.csv].";
+
+const CONTRADICTION_DESC_RAMESH_SUNITA =
+  "Conflicting witness accounts: Sunita Devi claims Aarav boarded a school van at 16:45 near his residence, while shopkeeper Ramesh Soni witnessed a boy matching Aarav's description board a grey hatchback (RJ-19 series) at 16:22 near City Park Gate 2. These accounts are mutually exclusive — Aarav cannot have boarded both vehicles in the same time window.";
 
 // ── Demo payload type ─────────────────────────────────────────────────────────
 export interface DemoPayload {
@@ -150,6 +158,7 @@ export function getDemoPayload(
 
   // ── File 2: 02_ramesh_soni_statement.txt ─────────────────────────────────
   if (fn.includes('ramesh')) {
+    const sunitaAlreadyIngested = existingTitles.some((t) => t.includes('sunita'));
     return {
       agencySlug: 'jodhpur',
       entities: [
@@ -167,13 +176,10 @@ export function getDemoPayload(
       ],
       events: [
         {
-          id: eventId(
-            'Boy in blue t-shirt seen entering grey hatchback near City Park Gate 2, vehicle departed north toward highway',
-            '2026-03-14T16:22:00'
-          ),
+          id: EVT_RAMESH_ID,
           description:
             'Boy in blue t-shirt seen entering grey hatchback near City Park Gate 2, vehicle departed north toward highway',
-          event_timestamp: '2026-03-14T16:22:00',
+          event_timestamp: EVT_RAMESH_TS,
           event_timestamp_confidence: 'exact',
           location_text: 'City Park Gate 2, Shastri Nagar, Jodhpur',
           lat: 26.28,
@@ -195,14 +201,51 @@ export function getDemoPayload(
           explanation: 'Eyewitness statement of shopkeeper Ramesh Soni, recorded 14 March 2026.',
         },
       ],
-      contradictions: [],
+      contradictions: sunitaAlreadyIngested
+        ? [
+            {
+              id: stableId('contradiction|ramesh|sunita'),
+              event_a_id: EVT_RAMESH_ID,
+              event_b_id: EVT_SUNITA_ID,
+              type: 'factual',
+              description: CONTRADICTION_DESC_RAMESH_SUNITA,
+              status: 'flagged',
+            },
+          ]
+        : [],
     };
   }
 
   // ── File 3: 03_sunita_devi_statement.txt ─────────────────────────────────
-  // Trigger contradiction immediately if File 4 already exists
+  // Trigger contradiction immediately if File 4 or File 2 already exists
   if (fn.includes('sunita')) {
     const schoolAlreadyIngested = existingTitles.some((t) => t.includes('school'));
+    const rameshAlreadyIngested = existingTitles.some((t) => t.includes('ramesh'));
+    
+    const contradictions: Omit<Contradiction, 'case_id' | 'created_at'>[] = [];
+    
+    if (schoolAlreadyIngested) {
+      contradictions.push({
+        id: stableId('contradiction|sunita|school'),
+        event_a_id: EVT_SUNITA_ID,
+        event_b_id: EVT_SCHOOL_ID,
+        type: 'factual',
+        description: CONTRADICTION_DESC,
+        status: 'flagged',
+      });
+    }
+
+    if (rameshAlreadyIngested) {
+      contradictions.push({
+        id: stableId('contradiction|ramesh|sunita'),
+        event_a_id: EVT_RAMESH_ID,
+        event_b_id: EVT_SUNITA_ID,
+        type: 'factual',
+        description: CONTRADICTION_DESC_RAMESH_SUNITA,
+        status: 'flagged',
+      });
+    }
+
     return {
       agencySlug: 'jodhpur',
       entities: [],
@@ -221,18 +264,7 @@ export function getDemoPayload(
         },
       ],
       relationships: [],
-      contradictions: schoolAlreadyIngested
-        ? [
-            {
-              id: stableId('contradiction|sunita|school'),
-              event_a_id: EVT_SUNITA_ID,
-              event_b_id: EVT_SCHOOL_ID,
-              type: 'factual',
-              description: CONTRADICTION_DESC,
-              status: 'flagged',
-            },
-          ]
-        : [],
+      contradictions,
     };
   }
 
